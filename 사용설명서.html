@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 기반 이미지 세분화 시스템 사용설명서</title>
+<style>
+:root{
+  --bg:#e9ebef; --panel:#ffffff; --panel2:#f5f6f8; --line:#eceef2; --line2:#d6d9e0; --text:#111318; --sub:#3a3f4b; --muted:#6b7080;
+  --accent:#2f4fe0; --accent-soft:#e8ecfd; --crop:#16a34a; --bgpt:#e5484d; --warn:#b45309; --warn-soft:#fdf4e3; --code:#f0f1f4; --dark:#111318;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#272b35; --line2:#343947; --text:#e8eaf0; --sub:#c3c8d4; --muted:#8b92a3;
+    --accent:#7b93ff; --accent-soft:#1f2848; --crop:#34d399; --bgpt:#ff6b6f; --warn:#f5a623; --warn-soft:#2e2615; --code:#232733; --dark:#0a0b0e;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#272b35; --line2:#343947; --text:#e8eaf0; --sub:#c3c8d4; --muted:#8b92a3;
+  --accent:#7b93ff; --accent-soft:#1f2848; --crop:#34d399; --bgpt:#ff6b6f; --warn:#f5a623; --warn-soft:#2e2615; --code:#232733; --dark:#0a0b0e;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.7 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+a{color:var(--accent)}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);max-width:1220px;margin:0 auto;padding:16px;gap:16px}
+nav{position:sticky;top:16px;height:calc(100vh - 32px);overflow:auto;padding:24px 18px;background:var(--panel);border-radius:26px}
+nav .brand{font-weight:700;font-size:16px;line-height:1.35;margin-bottom:4px}
+nav .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+nav ol{list-style:none;margin:0;padding:0;counter-reset:n}
+nav li{counter-increment:n}
+nav a{display:block;padding:6px 12px;border-radius:999px;color:var(--text);text-decoration:none;font-size:14px}
+nav a::before{content:counter(n) ". ";color:var(--muted)}
+nav a:hover{background:var(--panel2)}
+nav a.on{background:var(--accent);color:#fff}
+nav a.on::before{color:rgba(255,255,255,.7)}
+.theme{margin-top:18px;font-size:12px;padding:6px 14px;border:1.5px solid var(--text);background:transparent;color:var(--text);border-radius:999px;cursor:pointer}
+main{min-width:0}
+header.hero{background:var(--panel);border-radius:26px;padding:30px 32px;margin-bottom:16px}
+header.hero h1{margin:0 0 8px;font-size:34px;font-weight:400;letter-spacing:-1.2px;line-height:1.2}
+header.hero p{margin:0;color:var(--muted)}
+header.hero em{color:var(--accent);font-style:normal;font-weight:700}
+.feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:20px}
+.feat div{background:var(--panel2);border-radius:18px;padding:12px 14px;font-size:14px}
+.feat div span{color:var(--muted);display:block;font-size:13px}
+.feat .k{background:var(--dark);color:#fff}
+.feat .k span{color:#a4a8b3}
+section{background:var(--panel);border-radius:26px;padding:26px 30px;margin-bottom:16px}
+h2{margin:0 0 14px;font-size:22px;font-weight:500;letter-spacing:-.5px;display:flex;align-items:center;gap:12px}
+h2 .num{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--accent);color:#fff;font-size:14px;font-weight:700;flex:none}
+h3{font-size:16px;margin:24px 0 8px}
+table{width:100%;border-collapse:collapse;margin:8px 0 12px;font-size:14px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--panel2);font-weight:600}
+th:first-child{border-radius:12px 0 0 12px} th:last-child{border-radius:0 12px 12px 0}
+.tw{overflow-x:auto}
+code{background:var(--code);padding:1px 7px;border-radius:6px;font:13px Consolas,"D2Coding",monospace;word-break:break-all}
+pre{background:var(--code);padding:14px 18px;border-radius:16px;overflow:auto;font:13px/1.55 Consolas,"D2Coding",monospace;margin:8px 0 12px}
+pre code{background:none;padding:0;word-break:normal}
+kbd{display:inline-block;min-width:22px;text-align:center;background:var(--panel);border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:0 6px;font:12px Consolas,monospace;line-height:20px;color:var(--sub)}
+.note{background:var(--accent-soft);padding:12px 16px;border-radius:16px;margin:12px 0}
+.warn{background:var(--warn-soft);padding:12px 16px;border-radius:16px;margin:12px 0}
+.warn b{color:var(--warn)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+.steps>li{counter-increment:s;position:relative;padding:4px 0 12px 44px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:3px;width:30px;height:30px;border-radius:50%;background:var(--panel);border:1.5px solid var(--text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:-1px;margin-right:3px}
+.g{background:var(--crop)} .r{background:var(--bgpt)}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:10px 0 4px}
+.cmp>div{border:1.5px solid var(--line2);border-radius:20px;padding:16px 18px}
+.cmp>div.best{border-color:var(--accent);background:var(--accent-soft)}
+.cmp h4{margin:0 0 6px;font-size:16px;display:flex;align-items:center;gap:8px}
+.cmp .pill{font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--accent);color:#fff}
+.cmp ul{margin:0;padding-left:18px;color:var(--sub)}
+.screen{display:grid;grid-template-columns:.9fr 1.5fr 1.5fr 1fr;gap:8px;margin:12px 0 14px;font-size:13px}
+.screen .topbar{grid-column:1/5;background:var(--panel2);border-radius:14px;padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.screen .topbar span{border:1.5px solid var(--text);border-radius:999px;padding:1px 10px;font-weight:600;font-size:12px}
+.screen .topbar span.on{background:var(--text);color:var(--panel)}
+.screen .topbar i{flex:1}
+.screen .topbar b{background:var(--accent);color:#fff;border-radius:999px;padding:1px 12px;font-size:12px}
+.screen .kpi{grid-column:1/5;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.screen .kpi strong{flex:1;font-weight:400;font-size:18px;letter-spacing:-.4px}
+.screen .kpi span{border:1px solid var(--line2);border-radius:14px;padding:4px 12px;font-size:12px}
+.screen .kpi span.k{background:var(--dark);color:#fff;border-color:var(--dark)}
+.screen .c{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:12px;min-height:130px}
+.screen .c b{display:block;margin-bottom:4px}
+.screen .c span{color:var(--muted)}
+.cands{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}
+.cands figure{margin:0;background:var(--panel2);border-radius:18px;padding:10px;text-align:center;font-size:13px}
+.cands svg{width:100%;height:auto;max-width:150px}
+.faq details{border:1px solid var(--line);border-radius:16px;padding:12px 16px;margin-bottom:8px;background:var(--panel)}
+.faq summary{cursor:pointer;font-weight:600}
+.faq details[open] summary{margin-bottom:6px}
+.faq p{margin:4px 0}
+.faq h3{margin:18px 0 8px}
+footer{color:var(--muted);font-size:13px;text-align:center;margin:26px 0 10px}
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr;padding:12px}
+  nav{position:static;height:auto;padding:16px}
+  nav ol{display:flex;flex-wrap:wrap;gap:4px}
+  section,header.hero{padding:20px 16px}
+  header.hero h1{font-size:26px}
+  .screen{grid-template-columns:1fr 1fr}
+  .screen .topbar,.screen .kpi{grid-column:1/3}
+  .cmp{grid-template-columns:1fr}
+}
+@media print{
+  body{background:#fff} nav{display:none} .layout{display:block;max-width:none} section{break-inside:avoid-page;border:1px solid #ddd} .faq details{display:block}
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <div class="brand">🌱 AI 기반 이미지<br>세분화 시스템</div>
+  <div class="sub">사용설명서</div>
+  <ol id="toc">
+    <li><a href="#which">어떤 버전?</a></li>
+    <li><a href="#files">구성 파일</a></li>
+    <li><a href="#start">브라우저 버전 시작</a></li>
+    <li><a href="#screen">화면 구성</a></li>
+    <li><a href="#label">라벨링 방법</a></li>
+    <li><a href="#keys">단축키</a></li>
+    <li><a href="#save">폴더와 저장</a></li>
+    <li><a href="#settings">설정</a></li>
+    <li><a href="#python">파이썬 서버 버전</a></li>
+    <li><a href="#faq">자주 묻는 문제</a></li>
+  </ol>
+  <button class="theme" id="themeBtn">🌓 라이트 / 다크</button>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>AI 기반 이미지 세분화 시스템</h1>
+  <p>이미지에 <b>작물 점</b>과 <b>배경 점</b>을 찍으면 <em>Segment Anything</em> 모델이 작물 영역을 분할하고, 그 결과 마스크를 저장하는 라벨링 도구입니다.</p>
+  <div class="feat">
+    <div class="k">⚡ 설치 없이 실행<span>HTML 파일 더블클릭</span></div>
+    <div>⚖️ 모델 3종 선택<span>ViT-B / ViT-L / ViT-H</span></div>
+    <div>👀 점을 찍을 때마다<span>결과를 옆 화면에 바로 표시</span></div>
+    <div>✏️ 점 이동 · 삭제 · 전환<span>Ctrl+Z 되돌리기</span></div>
+    <div>🌿 여러 포기 따로<span>객체별 마스크 저장</span></div>
+    <div>🔁 이어서 수정<span>저장한 점을 다시 불러옴</span></div>
+  </div>
+</header>
+
+<section id="which">
+  <h2><span class="num">1</span>어떤 버전을 쓰면 되나요?</h2>
+  <p>같은 기능을 두 가지 방식으로 제공합니다. <b>처음이라면 브라우저 버전(v2)을 쓰세요.</b></p>
+  <div class="cmp">
+    <div class="best"><h4>브라우저 버전 <span class="pill">권장</span></h4><ul>
+      <li><code>AI_이미지_세분화_시스템_v2.html</code> 더블클릭</li>
+      <li>설치 없음 (Chrome · Edge)</li>
+      <li>모델은 처음 한 번 자동 다운로드</li>
+      <li>실행할 때 인터넷 필요</li>
+      <li>HTML 파일 하나만 보내면 배포 끝</li></ul></div>
+    <div><h4>파이썬 서버 버전</h4><ul>
+      <li><code>run_sam_label.bat</code> 더블클릭</li>
+      <li>파이썬 · PyTorch · segment_anything 필요</li>
+      <li>폴더 안의 <code>.pth</code> 가중치 사용</li>
+      <li>인터넷 필요 없음</li>
+      <li><b>ViT-H 를 정상 속도로</b> 쓸 수 있음</li></ul></div>
+  </div>
+  <div class="note">저장되는 결과 파일의 형식은 두 버전이 같아서, 한쪽에서 만든 라벨을 다른 쪽에서 이어서 수정할 수 있습니다.</div>
+</section>
+
+<section id="files">
+  <h2><span class="num">2</span>구성 파일</h2>
+<pre><code>weight_sam\
+ ├ AI_이미지_세분화_시스템_v2.html   ← 브라우저 버전 v2 (권장 · 밝은 디자인)
+ ├ AI_이미지_세분화_시스템.html      ← 브라우저 버전 v1 (어두운 디자인 · 기능 동일)
+ ├ 사용설명서.html                   ← 이 문서
+ ├ README.md
+ │
+ ├ run_sam_label.bat                ← 파이썬 서버 버전 실행
+ ├ sam_label_server.py              ← 파이썬 서버 (SAM 계산)
+ ├ sam_label.html                   ← 파이썬 서버 버전 화면
+ ├ requirements.txt                 ← 파이썬 패키지 목록
+ ├ sam_vit_b_01ec64.pth             ← 가중치 ViT-B (375MB)
+ ├ sam_vit_l_0b3195.pth             ← 가중치 ViT-L (1.2GB)
+ ├ sam_vit_h_4b8939.pth             ← 가중치 ViT-H (2.5GB)
+ └ images\                          ← 파이썬 버전 기본 이미지 폴더</code></pre>
+  <div class="note">브라우저 버전만 쓸 때는 <b>HTML 파일 하나만 있으면 됩니다.</b> (<code>.pth</code> 가중치, 파이썬 필요 없음)</div>
+</section>
+
+<section id="start">
+  <h2><span class="num">3</span>브라우저 버전 시작하기</h2>
+  <h3>필요 환경</h3>
+  <div class="tw"><table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>브라우저</td><td><b>Chrome 또는 Edge 최신 버전</b> (폴더 열기 · 저장 기능 지원)</td></tr>
+    <tr><td>그래픽카드</td><td>WebGPU 를 지원하는 그래픽카드 권장. 없으면 CPU 로 동작하지만 느림</td></tr>
+    <tr><td>인터넷</td><td>실행할 때마다 AI 엔진을 받고, 모델은 처음 한 번만 받음</td></tr>
+    <tr><td>저장공간</td><td>모델이 브라우저에 저장됨 (ViT-B 약 0.2GB, ViT-L 약 0.6GB)</td></tr>
+  </table></div>
+
+  <h3>처음 실행</h3>
+  <ol class="steps">
+    <li><code>AI_이미지_세분화_시스템_v2.html</code> 을 <b>더블클릭</b>합니다. 기본 브라우저가 Chrome/Edge 가 아니면 파일을 Chrome 창으로 끌어다 놓으세요.</li>
+    <li>"모델 불러오는 중" 창이 뜨고 모델을 다운로드합니다. 처음에만 시간이 걸리고, 다음부터는 브라우저에 저장된 파일을 씁니다.</li>
+    <li>위쪽 <b>↺ 새 작업</b> → <b>이미지 폴더 선택</b>으로 폴더를 고르고, 브라우저가 묻는 <b>"파일 보기"</b> 권한을 허용합니다. (저장 폴더도 여기서 미리 고를 수 있습니다)</li>
+    <li>점을 찍고 <kbd>Ctrl</kbd>+<kbd>S</kbd> 로 저장합니다. 처음 저장할 때 <b>저장 폴더</b>를 고르고 <b>"변경 사항 저장"</b> 권한을 허용합니다.</li>
+  </ol>
+  <h3>다음 실행</h3>
+  <p>왼쪽에 <b>지난 작업</b> 상자가 나타나면 <b>이어서 열기</b>를 누르세요. 지난번 이미지 폴더와 저장 폴더가 그대로 열립니다. (브라우저 보안상 폴더 권한을 다시 확인하기 때문에 클릭 한 번이 필요합니다)</p>
+
+  <h3>모델 고르기 <span style="font-weight:400;color:var(--muted)">(화면 위쪽)</span></h3>
+  <div class="tw"><table>
+    <tr><th>모델</th><th>다운로드</th><th>이미지 분석</th><th>추천</th></tr>
+    <tr><td>ViT-B (빠름)</td><td>약 181MB</td><td>약 1~3초</td><td>빠르게 많이 라벨링할 때</td></tr>
+    <tr><td><b>ViT-L (중간)</b></td><td>약 620MB</td><td>약 3초</td><td><b>정확도가 중요할 때 (권장)</b></td></tr>
+    <tr><td>ViT-H (매우 느림)</td><td>약 661MB</td><td>약 1~2분</td><td>브라우저에서는 비권장 → 파이썬 버전 사용</td></tr>
+  </table></div>
+  <ul>
+    <li>이미지를 처음 열 때만 분석 시간이 걸리고, <b>점을 찍을 때는 0.1초 안팎</b>으로 바로 반응합니다.</li>
+    <li><b>정밀도</b>는 "자동"을 권장합니다. (그래픽카드에 맞춰 fp16 / fp32 / 8bit 중 선택)</li>
+    <li>속도는 RTX 3080 Ti 기준으로 잰 값입니다.</li>
+  </ul>
+</section>
+
+<section id="screen">
+  <h2><span class="num">4</span>화면 구성 (v2)</h2>
+  <div class="screen">
+    <div class="topbar"><span class="on">↺ 새 작업</span><i></i>◀ 4/7 ▶ · 자동저장 · 모델 · 정밀도 · ⛶ · ↶ <b>저장</b></div>
+    <div class="kpi"><strong>AI 기반 이미지 세분화 시스템</strong><span class="k">진행률 3/7</span><span>현재 이미지</span><span>AI 상태</span></div>
+    <div class="c"><b>이미지</b><span>이미지 폴더 · 저장 폴더<br>＋ 파일 추가<br>목록 (✔ 저장 완료)</span></div>
+    <div class="c"><b>원본 · 점 찍기</b><span>점을 찍는 곳 · 🖌 브러시<br>아래: 작물 점 / 배경 점 모드</span></div>
+    <div class="c"><b>분할 결과</b><span>결과 확인 · 여기서도 점 수정 가능<br>위: 보기 방식 · 아래: 투명도</span></div>
+    <div class="c"><b>객체</b><span>객체 목록 · 전체 지우기<br>점 목록 · 마스크 후보<br>브러시 · 표시 설정</span></div>
+  </div>
+  <p>각 기능은 <b>한 곳에만</b> 있습니다.</p>
+  <div class="tw"><table>
+    <tr><th>위치</th><th>내용</th></tr>
+    <tr><td>왼쪽 레일</td><td>보기 전환 <b>라벨링</b>(원본+결과) · <b>원본</b> · <b>결과</b>(한쪽만 크게), <b>설정</b>, <b>도움말</b>(조작법·단축키)</td></tr>
+    <tr><td>위쪽 왼쪽</td><td><b>↺ 새 작업</b>: 이미지 폴더 · 저장 폴더 고르기 (처음 시작할 때도 여기서)</td></tr>
+    <tr><td>위쪽 오른쪽</td><td>이전/다음 이미지, 자동저장, 모델, 정밀도, 화면 맞춤(⛶), 되돌리기, 저장</td></tr>
+    <tr><td>지표 카드</td><td><b>진행률</b>(완료/전체, 남은 장수) · <b>현재 이미지</b>(이름, 크기, 저장 상태) · <b>AI 상태</b>(GPU/CPU, 정밀도, 분석 시간)</td></tr>
+    <tr><td>이미지 카드</td><td>현재 이미지 폴더 · 저장 폴더, <b>＋ 파일 추가</b>, 이미지 목록(✔ = 저장 완료)</td></tr>
+    <tr><td>원본 카드</td><td>점을 찍는 곳. 오른쪽 위 <b>🖌 브러시</b>, 아래 알약에서 <b>작물 점 / 배경 점</b> 모드 선택</td></tr>
+    <tr><td>결과 카드</td><td>분할 결과. 여기서도 점을 똑같이 찍고 수정 가능. 오른쪽 위에서 보기 방식, 아래에서 투명도</td></tr>
+    <tr><td>오른쪽 카드</td><td>객체 목록(<b>전체 지우기</b>, ＋ 새 객체), 점 목록, 마스크 후보, 브러시, 표시 설정</td></tr>
+  </table></div>
+  <p>두 화면(원본·결과)의 확대와 이동은 함께 움직여서 같은 위치를 나란히 비교할 수 있습니다.</p>
+  <div class="note">v1(<code>AI_이미지_세분화_시스템.html</code>)은 이전 버전(어두운 화면)입니다. 점 찍기 · 저장 기능은 같지만 <b>브러시 · 전체 지우기 · 새 작업은 없습니다.</b></div>
+</section>
+
+<section id="label">
+  <h2><span class="num">5</span>라벨링 방법</h2>
+  <h3>기본 흐름</h3>
+  <ol class="steps">
+    <li>왼쪽 목록에서 이미지를 고릅니다. (처음 열 때 이미지 분석에 몇 초 걸립니다)</li>
+    <li>작물 위를 <b>좌클릭</b> → <span class="dot g"></span>초록 점(작물)이 찍히고 결과가 바로 나옵니다.</li>
+    <li>마스크가 배경까지 넘쳤으면 넘친 곳을 <b>우클릭</b> → <span class="dot r"></span>빨간 점(배경)</li>
+    <li>마스크가 작물을 덜 덮었으면 빠진 곳을 <b>좌클릭</b>해서 작물 점을 추가합니다.</li>
+    <li>결과가 마음에 들면 <kbd>Ctrl</kbd>+<kbd>S</kbd> 로 저장하고, <kbd>D</kbd> 또는 <kbd>→</kbd> 로 다음 이미지로 이동합니다.</li>
+  </ol>
+  <div class="note">다른 이미지로 이동할 때는 기본적으로 자동 저장됩니다. (위쪽 "자동저장" 스위치)</div>
+
+  <h3>점 다루기</h3>
+  <div class="tw"><table>
+    <tr><th>동작</th><th>결과</th></tr>
+    <tr><td>좌클릭</td><td>현재 모드의 점 추가 (기본: 작물)</td></tr>
+    <tr><td>우클릭</td><td>반대 모드의 점 추가 (기본: 배경)</td></tr>
+    <tr><td>점 드래그</td><td>점 위치 이동 (결과가 실시간으로 바뀜)</td></tr>
+    <tr><td>점 위에서 우클릭</td><td>점 삭제</td></tr>
+    <tr><td>점 더블클릭</td><td>작물 ↔ 배경 전환</td></tr>
+    <tr><td>점 목록의 ⇄ / ✕</td><td>전환 / 삭제</td></tr>
+  </table></div>
+
+  <h3>여러 포기를 따로 라벨링하기 (객체)</h3>
+  <ul>
+    <li><kbd>N</kbd> 을 누르거나 객체 카드의 <b>＋</b> 를 누르면 새 객체가 생깁니다. 이후 찍는 점은 새 객체에 들어갑니다.</li>
+    <li>객체마다 색이 다르고, 저장할 때 객체별 번호 마스크(<code>instances</code>)가 따로 만들어집니다.</li>
+    <li>객체 이름은 목록에서 클릭해서 바꿀 수 있고, <kbd>Tab</kbd> 으로 객체를 바꿔 가며 선택합니다.</li>
+  </ul>
+  <div class="note">한 객체에 여러 포기를 점으로 다 찍는 것보다 <b>포기마다 객체를 나누는 것</b>이 훨씬 정확합니다.</div>
+
+  <h3>마스크 후보란?</h3>
+  <p>점이 <b>1개</b>일 때는 "잎 하나인지, 포기 전체인지, 모든 작물인지" 애매합니다. 그래서 SAM 은 <b>크기가 다른 마스크 3개</b>를 점수와 함께 돌려줍니다.</p>
+  <div class="cands">
+    <figure>
+      <svg viewBox="0 0 120 90" aria-hidden="true"><rect width="120" height="90" rx="10" fill="var(--panel)"/>
+        <g fill="var(--muted)" opacity=".35"><circle cx="45" cy="45" r="22"/><circle cx="90" cy="45" r="16"/></g>
+        <ellipse cx="38" cy="38" rx="11" ry="7" fill="var(--accent)"/><circle cx="38" cy="38" r="3" fill="#fff"/></svg>
+      <figcaption>후보 A · 잎 하나</figcaption>
+    </figure>
+    <figure>
+      <svg viewBox="0 0 120 90" aria-hidden="true"><rect width="120" height="90" rx="10" fill="var(--panel)"/>
+        <g fill="var(--muted)" opacity=".35"><circle cx="90" cy="45" r="16"/></g>
+        <circle cx="45" cy="45" r="22" fill="var(--accent)"/><circle cx="38" cy="38" r="3" fill="#fff"/></svg>
+      <figcaption>후보 B · 포기 전체</figcaption>
+    </figure>
+    <figure>
+      <svg viewBox="0 0 120 90" aria-hidden="true"><rect width="120" height="90" rx="10" fill="var(--panel)"/>
+        <g fill="var(--accent)"><circle cx="45" cy="45" r="22"/><circle cx="90" cy="45" r="16"/></g><circle cx="38" cy="38" r="3" fill="#fff"/></svg>
+      <figcaption>후보 C · 작물 전부</figcaption>
+    </figure>
+  </div>
+  <ul>
+    <li>점수는 모델이 <b>스스로 예측한 품질</b>입니다. 정답 대비 정확도가 아니며, 1을 조금 넘을 수도 있습니다.</li>
+    <li>자동으로 <b>점과 가장 잘 맞는</b>(작물 점이 안에, 배경 점이 밖에 있는) 후보 중 점수가 높은 것이 선택됩니다.</li>
+    <li>다른 후보가 맞으면 막대를 누르거나 <kbd>[</kbd> / <kbd>]</kbd> 키로 바꾸세요. 직접 고른 후보는 저장 후에도 기억됩니다.</li>
+    <li>브라우저 버전은 점 개수와 상관없이 항상 후보 3개를 보여줍니다. (파이썬 버전은 점이 2개 이상이면 1개)</li>
+  </ul>
+
+  <h3>결과 보기 방식 <span style="font-weight:400;color:var(--muted)">(결과 카드 오른쪽 위, <kbd>M</kbd> 키)</span></h3>
+  <ul>
+    <li><b>오버레이</b>: 원본 위에 색 마스크</li>
+    <li><b>마스크</b>: 저장될 흑백 마스크와 같은 모양</li>
+    <li><b>객체별</b>: 객체마다 다른 색</li>
+    <li><b>잘라내기</b>: 배경을 지우고 작물만 표시</li>
+  </ul>
+
+  <h3>브러시로 문질러 채우기 · 지우기 <span style="font-weight:400;color:var(--muted)">(v2 · 서버 버전)</span></h3>
+  <p>점만으로 잘 안 잡히는 부분(예: 줄기가 겹쳐서 마스크 가운데가 비는 곳)을 <b>직접 문질러서 채우거나 지울 수 있습니다.</b></p>
+  <div class="tw"><table>
+    <tr><th>동작</th><th>방법</th></tr>
+    <tr><td>브러시 켜기 / 끄기</td><td>원본 카드 오른쪽 위 <b>🖌 브러시</b>, 오른쪽 카드의 브러시 스위치, 또는 <kbd>B</kbd></td></tr>
+    <tr><td>칠하기 (마스크에 추가)</td><td>브러시를 켜고 <b>좌클릭 드래그</b></td></tr>
+    <tr><td>지우기 (마스크에서 제거)</td><td><b>우클릭 드래그</b>, 또는 <b>지우기</b> 선택 후 좌클릭 드래그 (<kbd>E</kbd> 로 전환)</td></tr>
+    <tr><td>크기</td><td>크기 슬라이더, <kbd>-</kbd> / <kbd>=</kbd>, 또는 <kbd>Alt</kbd>+휠</td></tr>
+    <tr><td>이 객체의 브러시만 지우기</td><td>오른쪽 <b>이 객체의 브러시 지우기</b></td></tr>
+    <tr><td>되돌리기</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> (획 단위)</td></tr>
+  </table></div>
+  <ul>
+    <li>브러시는 <b>선택한 객체</b>에 적용됩니다. 점을 옮기거나 추가해서 SAM 이 다시 계산해도 <b>칠한 부분은 그대로 유지</b>됩니다.</li>
+    <li>칠한 획은 JSON 의 <code>strokes</code> 에 저장되어 다시 열면 복원되고, 저장되는 마스크에도 반영됩니다.</li>
+  </ul>
+
+  <h3>전체 지우기 <span style="font-weight:400;color:var(--muted)">(v2 · 서버 버전)</span></h3>
+  <p>객체 영역의 <b>전체 지우기</b>는 현재 이미지의 점 · 객체 · 브러시를 모두 지웁니다. <kbd>Ctrl</kbd>+<kbd>Z</kbd> 로 되돌릴 수 있고, 저장하기 전까지 이미 저장된 파일은 바뀌지 않습니다.</p>
+</section>
+
+<section id="keys">
+  <h2><span class="num">6</span>단축키</h2>
+  <div class="tw"><table>
+    <tr><th>키</th><th>기능</th></tr>
+    <tr><td><kbd>1</kbd> / <kbd>2</kbd></td><td>작물 모드 / 배경 모드</td></tr>
+    <tr><td><kbd>N</kbd></td><td>새 객체</td></tr>
+    <tr><td><kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>다음 / 이전 객체 선택</td></tr>
+    <tr><td><kbd>Delete</kbd></td><td>선택한 점 삭제</td></tr>
+    <tr><td><kbd>C</kbd></td><td>현재 객체의 점 모두 삭제</td></tr>
+    <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>마스크 후보 바꾸기</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>되돌리기 / 다시 실행</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>저장</td></tr>
+    <tr><td><kbd>A</kbd> <kbd>←</kbd> / <kbd>D</kbd> <kbd>→</kbd></td><td>이전 / 다음 이미지</td></tr>
+    <tr><td><kbd>F</kbd></td><td>화면 맞춤</td></tr>
+    <tr><td><kbd>M</kbd></td><td>결과 보기 방식 바꾸기</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>설정 · 도움말 · 새 작업 창 닫기 (v2)</td></tr>
+    <tr><td><kbd>B</kbd> / <kbd>E</kbd></td><td>브러시 켜기·끄기 / 칠하기↔지우기 (v2 · 서버 버전)</td></tr>
+    <tr><td><kbd>-</kbd> / <kbd>=</kbd>, <kbd>Alt</kbd>+휠</td><td>브러시 크기 (v2 · 서버 버전)</td></tr>
+    <tr><td>마우스 휠</td><td>확대 / 축소</td></tr>
+    <tr><td><kbd>Space</kbd>+드래그, 휠 클릭 드래그</td><td>화면 이동</td></tr>
+  </table></div>
+</section>
+
+<section id="save">
+  <h2><span class="num">7</span>폴더와 저장</h2>
+  <h3>이미지 폴더</h3>
+  <ul>
+    <li><b>↺ 새 작업</b>에서 폴더를 고르거나, 이미지를 화면에 끌어다 놓거나 <b>＋ 파일 추가</b>로 목록에 넣을 수 있습니다.</li>
+    <li>브라우저 버전 지원 형식: <b>jpg, jpeg, png, bmp, webp</b> (tif 는 브라우저가 열지 못함 → 파이썬 버전 사용)</li>
+    <li>파이썬 버전 지원 형식: jpg, jpeg, png, bmp, tif, tiff, webp</li>
+  </ul>
+
+  <h3>저장 폴더</h3>
+  <div class="tw"><table>
+    <tr><th></th><th>브라우저 버전</th><th>파이썬 버전</th></tr>
+    <tr><td>기본</td><td>처음 저장할 때 직접 선택 (보통 <code>문서</code> 안에 새 폴더)</td><td><code>문서\SAM_Labeler\labels\&lt;이미지폴더 이름&gt;</code></td></tr>
+    <tr><td>기존 결과 이어서</td><td>이미지 폴더에 <code>sam_labels</code> 가 있으면 <b>기존 sam_labels</b> 버튼이 나타남</td><td>이미지 폴더 안에 <code>sam_labels</code> 가 있으면 자동으로 사용</td></tr>
+    <tr><td>바꾸기</td><td>위쪽 <b>↺ 새 작업</b> → 저장 폴더 <b>선택</b></td><td>위쪽 <b>↺ 새 작업</b>, 또는 왼쪽 저장 폴더 <b>📁 찾아보기</b> / 경로 입력</td></tr>
+  </table></div>
+  <ul>
+    <li>저장 폴더를 바꿔도 <b>작업 중인 점은 그대로</b> 남고, 다음 저장 때 새 폴더에 저장됩니다.</li>
+    <li>목록의 ✔ 표시는 <b>현재 저장 폴더 기준</b>입니다.</li>
+    <li>폴더 저장을 지원하지 않는 브라우저(Firefox 등)에서는 저장 시 파일이 <b>다운로드</b>됩니다.</li>
+  </ul>
+
+  <h3>↺ 새 작업 <span style="font-weight:400;color:var(--muted)">(다른 폴더로 새로 시작 · v2 · 서버 버전)</span></h3>
+  <p>불러온 이미지를 다 끝내고 <b>다른 이미지 폴더 · 다른 저장 폴더로 새로 시작</b>할 때 씁니다.</p>
+  <ol class="steps">
+    <li>위쪽 <b>↺ 새 작업</b>을 누릅니다. 지금 작업 중인 폴더와 완료 수가 보입니다.</li>
+    <li><b>① 이미지 폴더</b>와 <b>② 저장 폴더</b>를 고릅니다.<br>
+      v2: <b>선택</b> 버튼으로 폴더 선택 창을 엽니다. 저장 폴더를 <b>나중에</b>로 두면 처음 저장할 때 고릅니다.<br>
+      서버 버전: <b>📁 찾아보기</b> 또는 경로 입력. 저장 폴더를 비우면 기본 위치에 저장합니다.</li>
+    <li><b>새 작업 시작</b>을 누르면 새 폴더의 이미지 목록으로 바뀝니다.</li>
+  </ol>
+  <ul>
+    <li>지금 작업 중인 이미지는 <b>이전 저장 폴더에 자동 저장</b>된 뒤 바뀝니다. (자동저장이 꺼져 있으면 확인을 묻습니다)</li>
+    <li>저장 폴더에 쓸 수 없으면 오류를 보여주고 아무것도 바꾸지 않습니다.</li>
+    <li>v2 에서 이미지 폴더를 그대로 두고 저장 폴더만 바꾸면, 보던 이미지 위치가 유지됩니다.</li>
+  </ul>
+
+  <h3>저장되는 파일</h3>
+<pre><code>&lt;저장 폴더&gt;\
+ ├ masks\&lt;이미지이름&gt;.png        흑백 마스크 (작물 255, 배경 0)
+ ├ instances\&lt;이미지이름&gt;.png    객체 번호 마스크 (배경 0, 객체 1, 2, 3 …)
+ ├ overlays\&lt;이미지이름&gt;.jpg     확인용 (원본 + 색 마스크)
+ ├ annotations\&lt;이미지이름&gt;.json 점 좌표, 모델, 점수, 면적, bbox
+ └ _source_folder.txt           어느 이미지 폴더의 결과인지 기록</code></pre>
+  <ul>
+    <li>마스크 크기는 원본 이미지와 같습니다. (사진의 회전 정보(EXIF)가 적용된 방향 기준)</li>
+    <li><code>instances</code> 는 객체가 255개 이하면 8비트, 그보다 많으면 16비트 PNG 입니다.</li>
+  </ul>
+
+  <h3>annotations JSON 예시</h3>
+<pre><code>{
+  "image": "IMG_0001.jpg",
+  "width": 4000, "height": 3000,
+  "weight": "vit_l",
+  "saved_at": "2026-09-23 13:05:36",
+  "runtime": "browser · webgpu · fp16",
+  "point_label": { "1": "작물(전경)", "0": "배경" },
+  "objects": [
+    {
+      "id": 1,
+      "name": "작물 1",
+      "points": [ { "x": 1036.2, "y": 1404.3, "l": 1 },
+                  { "x": 1327.8, "y": 924.1,  "l": 0 } ],
+      "mask_index": 1,
+      "user_pick": false,
+      "score": 0.97,
+      "color": "#2f4fe0",
+      "area": 696942,
+      "bbox_xyxy": [620, 410, 1890, 2530]
+    }
+  ]
+}</code></pre>
+  <div class="tw"><table>
+    <tr><th>항목</th><th>뜻</th></tr>
+    <tr><td><code>l</code></td><td>1 = 작물 점, 0 = 배경 점</td></tr>
+    <tr><td><code>weight</code></td><td>사용한 모델 (<code>vit_b</code>, <code>vit_l</code>, <code>vit_h</code>)</td></tr>
+    <tr><td><code>runtime</code></td><td>브라우저 버전에만 있음. 실행 장치와 정밀도</td></tr>
+    <tr><td><code>strokes</code></td><td>브러시 획 (v2 · 서버 버전). <code>m</code>(add=칠하기 / erase=지우기), <code>r</code>(반지름 px), <code>pts</code>(좌표 목록)</td></tr>
+    <tr><td><code>mask_index</code> / <code>user_pick</code></td><td>선택한 마스크 후보 번호 / 직접 골랐는지 여부</td></tr>
+    <tr><td><code>score</code></td><td>선택한 후보의 SAM 예측 점수</td></tr>
+    <tr><td><code>area</code></td><td>마스크 픽셀 수</td></tr>
+    <tr><td><code>bbox_xyxy</code></td><td>객체를 감싸는 사각형 (x1, y1, x2, y2)</td></tr>
+  </table></div>
+</section>
+
+<section id="settings">
+  <h2><span class="num">8</span>설정 <span style="font-weight:400;color:var(--muted);font-size:15px">(v2 왼쪽 레일의 “설정”)</span></h2>
+  <ul>
+    <li><b>모델 저장공간</b>: 브라우저에 저장된 모델 확인, <b>다운로드한 모델 지우기</b></li>
+    <li>모델 · 정밀도 안내, 저장되는 파일 안내</li>
+    <li>자동저장은 위쪽 스위치에서 켜고 끕니다. (선택이 기억됨)</li>
+  </ul>
+</section>
+
+<section id="python">
+  <h2><span class="num">9</span>파이썬 서버 버전</h2>
+  <p><code>.pth</code> 가중치를 그대로 쓰고, 인터넷 없이, ViT-H 를 정상 속도로 쓰고 싶을 때 사용합니다.</p>
+  <h3>설치 (처음 한 번)</h3>
+  <div class="tw"><table>
+    <tr><th>항목</th><th>내용</th></tr>
+    <tr><td>파이썬</td><td>Anaconda 또는 Python 3.9 이상</td></tr>
+    <tr><td>GPU (권장)</td><td>NVIDIA GPU + 드라이버 (없으면 CPU 로 매우 느림)</td></tr>
+    <tr><td>GPU 메모리</td><td>ViT-B 약 2GB, ViT-H 약 4~5GB 여유 권장</td></tr>
+  </table></div>
+  <ol class="steps">
+    <li><b>PyTorch</b> 설치 — GPU 를 쓰려면 <a href="https://pytorch.org/get-started/locally/">pytorch.org</a> 에서 CUDA 버전에 맞는 명령을 확인하세요. (아래는 CUDA 12.6 예시)
+<pre><code>pip install torch torchvision --index-url https://download.pytorch.org/whl/cu126</code></pre></li>
+    <li>나머지 패키지 설치
+<pre><code>pip install -r requirements.txt</code></pre></li>
+    <li>가중치(<code>.pth</code>)를 <code>sam_label_server.py</code> 와 같은 폴더에 둡니다.</li>
+  </ol>
+  <div class="tw"><table>
+    <tr><th>이름</th><th>파일명</th><th>다운로드</th></tr>
+    <tr><td>ViT-B</td><td><code>sam_vit_b_01ec64.pth</code></td><td><a href="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth">다운로드</a></td></tr>
+    <tr><td>ViT-L</td><td><code>sam_vit_l_0b3195.pth</code></td><td><a href="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth">다운로드</a></td></tr>
+    <tr><td>ViT-H</td><td><code>sam_vit_h_4b8939.pth</code></td><td><a href="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth">다운로드</a></td></tr>
+  </table></div>
+
+  <h3>실행</h3>
+  <ol class="steps">
+    <li><b><code>run_sam_label.bat</code> 을 더블클릭</b>합니다. 모델을 불러오면 브라우저가 자동으로 열립니다. (안 열리면 <code>http://127.0.0.1:8765</code>)</li>
+    <li><b>검은 창은 사용하는 동안 닫지 마세요.</b> 닫으면 서버가 꺼집니다.</li>
+    <li><code>sam_label.html</code> 만 따로 열면 "서버가 실행되고 있지 않습니다" 안내가 뜹니다. 서버를 켜면 자동으로 연결됩니다.</li>
+  </ol>
+  <p><code>run_sam_label.bat</code> 은 파이썬을 <code>SAM_PYTHON</code> 환경변수 → 폴더 안 <code>python\python.exe</code> → Anaconda/Miniconda → PATH 순서로 찾습니다.</p>
+
+  <h3>브러시 · 전체 지우기 · 새 작업</h3>
+  <p>v2 와 같은 기능입니다. <a href="#label">5. 라벨링 방법</a>(브러시 · 전체 지우기)과 <a href="#save">7. 폴더와 저장</a>(새 작업)을 보세요. 서버 버전은 새 작업에서 폴더 경로를 직접 입력할 수도 있습니다.</p>
+
+  <h3>실행 옵션 (고급)</h3>
+<pre><code>python sam_label_server.py --images D:\data\crops --output D:\data\crops_labels --weight vit_h</code></pre>
+  <div class="tw"><table>
+    <tr><th>옵션</th><th>설명</th><th>기본값</th></tr>
+    <tr><td><code>--images</code></td><td>이미지 폴더</td><td>마지막에 쓴 폴더</td></tr>
+    <tr><td><code>--output</code></td><td>저장 폴더</td><td>마지막에 쓴 폴더 / 기본 위치</td></tr>
+    <tr><td><code>--weight</code></td><td>시작 가중치 (<code>vit_b</code>, <code>vit_l</code>, <code>vit_h</code>)</td><td><code>vit_b</code></td></tr>
+    <tr><td><code>--weights</code></td><td>가중치 파일이 있는 폴더</td><td>프로그램 폴더</td></tr>
+    <tr><td><code>--device</code></td><td><code>cuda</code> 또는 <code>cpu</code></td><td>GPU 가 있으면 <code>cuda</code></td></tr>
+    <tr><td><code>--port</code></td><td>서버 포트</td><td><code>8765</code></td></tr>
+    <tr><td><code>--open</code></td><td>준비되면 브라우저 자동 열기</td><td>꺼짐 (bat 에서는 켜짐)</td></tr>
+    <tr><td><code>--settings</code></td><td>설정 파일 경로</td><td><code>%APPDATA%\SAM_Labeler\settings.json</code></td></tr>
+  </table></div>
+</section>
+
+<section id="faq" class="faq">
+  <h2><span class="num">10</span>자주 묻는 문제</h2>
+  <h3>브라우저 버전</h3>
+  <details><summary>"모델을 불러오지 못했습니다" / "AI 엔진을 불러오지 못했습니다"</summary>
+    <p>인터넷 연결을 확인하고 <b>다시 시도</b>를 누르세요. 회사·학교 네트워크에서 <code>huggingface.co</code>, <code>cdn.jsdelivr.net</code> 이 막혀 있으면 받을 수 없습니다.</p></details>
+  <details><summary>너무 느려요</summary>
+    <p>위쪽 상태가 <code>CPU</code> 로 나오면 그래픽카드(WebGPU)를 쓰지 못하는 상태입니다. Chrome/Edge 를 최신으로 업데이트하고 그래픽 드라이버를 확인하세요.</p>
+    <p>ViT-H 는 브라우저에서 원래 느리니 ViT-L 을 쓰세요. 이미지를 처음 열 때만 느리고, 점을 찍을 때는 빠릅니다.</p></details>
+  <details><summary>새 작업의 폴더 선택 창이 안 떠요, 저장이 안 돼요</summary>
+    <p>Chrome 또는 Edge 에서 여세요. 권한을 묻는 창에서 <b>허용</b>을 눌러야 합니다.</p>
+    <p>"저장 폴더에 쓸 권한이 없습니다" 가 나오면 저장 폴더를 다시 선택하세요.</p></details>
+  <details><summary>지난 폴더가 바로 안 열려요</summary>
+    <p>브라우저 보안상 매번 확인이 필요합니다. 왼쪽 <b>지난 작업 → 이어서 열기</b>를 누르세요.</p></details>
+  <details><summary>모델 파일이 용량을 차지해요 / 모델이 이상하게 동작해요</summary>
+    <p><b>설정 → 다운로드한 모델 지우기</b> 후 다시 불러오세요.</p></details>
+  <details><summary>tif 이미지가 목록에 안 보여요</summary>
+    <p>브라우저가 tif 를 열지 못합니다. jpg/png 로 바꾸거나 파이썬 버전을 쓰세요.</p></details>
+
+  <h3>파이썬 서버 버전</h3>
+  <details><summary>"SAM 서버가 실행되고 있지 않습니다" / Failed to fetch</summary>
+    <p><code>run_sam_label.bat</code> 을 실행하세요. 화면은 2초마다 자동으로 다시 연결합니다.</p></details>
+  <details><summary>"포트 8765 가 이미 사용 중입니다"</summary>
+    <p>이미 켜져 있습니다. 열려 있는 검은 창을 쓰거나, 닫고 다시 실행하세요.</p>
+    <p>다른 프로그램이 그 포트를 쓰고 있다면 <code>run_sam_label.bat --port 8800</code> 처럼 다른 포트로 실행하세요.</p></details>
+  <details><summary>"GPU 메모리 부족"</summary>
+    <p>다른 GPU 프로그램(학습 코드, 주피터 등)을 끄거나 ViT-B 를 쓰세요.</p></details>
+  <details><summary>"이 폴더에는 저장할 수 없습니다"</summary>
+    <p>읽기 전용이거나 권한이 없는 폴더입니다. (USB 쓰기 방지, 네트워크 드라이브, 회사 PC 의 폴더 보호 등) 다른 저장 폴더를 지정하세요.</p></details>
+  <details><summary>"필요한 패키지가 없습니다"</summary>
+    <p><a href="#python">9. 파이썬 서버 버전</a>의 설치를 진행하세요. 검은 창에 나온 <code>pip install</code> 명령을 그대로 실행하면 됩니다.</p></details>
+
+  <h3>공통</h3>
+  <details><summary>저장했던 점이 다시 보이나요?</summary>
+    <p>네. 같은 저장 폴더를 쓰는 한, 저장한 이미지를 다시 열면 점이 복원되고 목록에 ✔ 가 표시됩니다.</p></details>
+</section>
+
+<footer>AI 기반 이미지 세분화 시스템 · Segment Anything (Meta AI) 기반</footer>
+</main>
+</div>
+
+<script>
+// 테마 전환 (선택은 이 브라우저에만 기억)
+(function () {
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('aisegManualTheme'); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('themeBtn').onclick = () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('aisegManualTheme', root.dataset.theme); } catch (e) {}
+  };
+})();
+// 스크롤 위치에 맞춰 목차 강조
+(function () {
+  const links = [...document.querySelectorAll('#toc a')];
+  const map = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { links.forEach(a => a.classList.remove('on')); map.get(e.target.id)?.classList.add('on'); } });
+  }, {rootMargin: '-10% 0px -75% 0px'});
+  document.querySelectorAll('main section').forEach(s => io.observe(s));
+})();
+</script>
+</body>
+</html>

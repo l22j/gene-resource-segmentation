@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 기반 이미지 세분화 시스템 (서버 버전)</title>
+<style>
+:root{
+  --bg:#15171c; --panel:#1d2027; --panel2:#252933; --line:#323744; --text:#e6e8ee; --muted:#8b92a3;
+  --accent:#4f8cff; --crop:#2ecc71; --bgpt:#ff4d5e; --warn:#f5a623;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 "Segoe UI","Malgun Gothic",sans-serif;overflow:hidden}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+button:hover{border-color:#4a5163;background:#2c313c}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(1.1)}
+button.on{outline:2px solid var(--accent);outline-offset:-1px}
+#brushSec.active{background:rgba(79,140,255,.08);box-shadow:inset 3px 0 0 var(--accent)}
+.pane .tools button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:disabled{opacity:.45;cursor:default}
+select,input[type=text]{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+#app{display:grid;grid-template-rows:48px 1fr 26px;grid-template-columns:220px 1fr 290px;height:100vh}
+header{grid-column:1/4;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0 8px 0 0;white-space:nowrap}
+header .grow{flex:1}
+.badge{padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge.busy{color:var(--warn);border-color:var(--warn)}
+.badge.ok{color:var(--crop);border-color:#2a6b45}
+aside{background:var(--panel);overflow:auto;border-right:1px solid var(--line)}
+aside.right{border-right:none;border-left:1px solid var(--line)}
+.sec{padding:10px 12px;border-bottom:1px solid var(--line)}
+.sec h3{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:6px}
+.sec h3 .sp{flex:1}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row+.row{margin-top:6px}
+#imgList{list-style:none;margin:0;padding:0}
+#imgList li{padding:6px 12px;cursor:pointer;display:flex;gap:6px;align-items:center;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#imgList li:hover{background:var(--panel2)}
+#imgList li.cur{background:#263552;border-left-color:var(--accent)}
+#imgList li .chk{width:14px;color:var(--crop);flex:none}
+#imgList li span.n{overflow:hidden;text-overflow:ellipsis}
+main{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px;min-width:0;min-height:0}
+.pane{position:relative;background:#0e0f13;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0;min-height:0}
+.pane .title{position:absolute;left:8px;top:8px;z-index:2;background:rgba(20,22,28,.8);padding:3px 9px;border-radius:6px;pointer-events:none;font-weight:600}
+.pane .tools{position:absolute;right:8px;top:8px;z-index:2;display:flex;gap:4px}
+.pane .tools button{padding:3px 8px;background:rgba(37,41,51,.9)}
+.pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.pane .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:20px}
+#dropHint{position:absolute;inset:0;background:rgba(79,140,255,.15);border:2px dashed var(--accent);display:none;align-items:center;justify-content:center;font-size:18px;z-index:5}
+footer{grid-column:1/4;display:flex;gap:16px;align-items:center;padding:0 12px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);white-space:nowrap;overflow:hidden}
+footer .err{color:var(--bgpt)}
+.mode{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.mode button{border:none;border-radius:0;padding:6px 12px}
+.mode button.crop.sel{background:#1f6b40;color:#fff}
+.mode button.bg.sel{background:#8a2632;color:#fff}
+.obj{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.obj:hover{background:var(--panel2)}
+.obj.act{border-color:var(--accent);background:#222a3a}
+.obj .sw{width:12px;height:12px;border-radius:3px;flex:none}
+.obj input{flex:1;min-width:0;background:transparent;border:none;padding:1px 2px}
+.obj input:focus{background:var(--panel2);outline:1px solid var(--line)}
+.obj .meta{color:var(--muted);font-size:11px;white-space:nowrap}
+.x{padding:1px 6px;background:transparent;border:none;color:var(--muted)}
+.x:hover{color:var(--bgpt);background:transparent}
+table.pts{width:100%;border-collapse:collapse;font-size:12px}
+table.pts td{padding:3px 4px;border-bottom:1px solid #272b35}
+table.pts tr.sel td{background:#263552}
+table.pts tr{cursor:pointer}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px}
+.cands{display:flex;gap:4px;flex-wrap:wrap}
+.cands button{padding:4px 8px;font-size:12px}
+.muted{color:var(--muted)}
+label.ck{display:flex;gap:6px;align-items:center;cursor:pointer}
+input[type=range]{width:100%}
+kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:11px Consolas,monospace}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:12px;color:var(--muted)}
+.keys span:nth-child(odd){text-align:right}
+#newJob{position:fixed;inset:0;z-index:45;background:rgba(10,11,14,.78);display:none;align-items:center;justify-content:center}
+#newJob.open{display:flex}
+#newJob .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 24px;width:min(600px,94vw);line-height:1.55}
+#newJob h2{margin:0 0 4px;font-size:18px}
+#newJob .cur{font-size:12px;color:var(--muted);background:var(--panel2);border-radius:8px;padding:8px 10px;margin:10px 0 14px;word-break:break-all}
+#newJob .step{margin-bottom:14px}
+#newJob .step b{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+#newJob .step b i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+#newJob .step .hint{font-size:12px;color:var(--muted);margin-top:4px}
+#newJob .err{color:var(--bgpt);font-size:12px;min-height:16px}
+#newJob .btns{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+#offline{position:fixed;inset:0;z-index:50;background:rgba(10,11,14,.88);display:none;align-items:center;justify-content:center}
+#offline .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px 28px;max-width:520px;line-height:1.7}
+#offline h2{margin:0 0 8px;font-size:18px;color:var(--warn)}
+#offline code{background:var(--panel2);padding:1px 6px;border-radius:4px}
+.path{font-size:11px;color:var(--muted);word-break:break-all}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🌱 AI 기반 이미지 세분화 시스템 <small style="font-weight:400;color:var(--muted);font-size:11px">서버 버전</small></h1>
+    <label class="muted">가중치</label>
+    <select id="weightSel"></select>
+    <span id="stat" class="badge">연결 중…</span>
+    <span class="grow"></span>
+    <button id="prevBtn" title="이전 이미지 (A / ←)">◀ 이전</button>
+    <span id="imgPos" class="muted">-</span>
+    <button id="nextBtn" title="다음 이미지 (D / →)">다음 ▶</button>
+    <label class="ck" title="다른 이미지로 이동할 때 변경 사항을 자동 저장"><input type="checkbox" id="autoSave" checked>이동 시 자동저장</label>
+    <button id="newJobBtn" title="이 폴더 작업을 마치고, 새 이미지 폴더와 저장 폴더를 골라 새로 시작">↺ 새 작업</button>
+    <button id="saveBtn" class="primary" title="Ctrl+S">💾 저장</button>
+  </header>
+
+  <aside>
+    <div class="sec">
+      <h3>이미지 폴더</h3>
+      <div class="row"><input type="text" id="dirInput" style="flex:1;min-width:0" placeholder="C:\...\images" title="경로 입력 후 Enter"></div>
+      <div class="row"><button id="dirPick">📁 찾아보기</button><button id="uploadBtn">＋ 이미지 추가</button>
+        <input type="file" id="fileInput" accept="image/*" multiple hidden></div>
+    </div>
+    <div class="sec">
+      <h3>저장 폴더 <span class="sp"></span><span id="outTag" class="muted" style="font-weight:400"></span></h3>
+      <div class="row"><input type="text" id="outInput" style="flex:1;min-width:0" placeholder="비우면 기본 위치" title="경로 입력 후 Enter"></div>
+      <div class="row"><button id="outPick">📁 찾아보기</button><button id="outReset" title="기본 위치(문서\SAM_Labeler\labels\이미지폴더이름)로 되돌리기">기본값</button></div>
+    </div>
+    <div class="sec" style="padding-bottom:4px"><h3>이미지 <span class="sp"></span><span id="doneCnt"></span></h3></div>
+    <ul id="imgList"></ul>
+  </aside>
+
+  <main id="main">
+    <div class="pane" id="paneL">
+      <div class="title">입력 · 점 찍기</div>
+      <div class="tools"><button id="brushTool" title="브러시 켜기/끄기 (B)">🖌 브러시</button><button data-fit>맞춤(F)</button></div>
+      <canvas id="cvL"></canvas>
+      <div class="empty" id="emptyL">왼쪽 목록에서 이미지를 선택하거나<br>이미지 파일을 여기로 끌어다 놓으세요</div>
+      <div id="dropHint">여기에 놓으면 이미지 폴더에 추가됩니다</div>
+    </div>
+    <div class="pane" id="paneR">
+      <div class="title">분할 결과</div>
+      <div class="tools">
+        <select id="viewMode" title="결과 보기 (M)">
+          <option value="overlay">오버레이</option>
+          <option value="binary">마스크(흑백)</option>
+          <option value="color">객체별 색</option>
+          <option value="cutout">작물만 잘라내기</option>
+        </select>
+      </div>
+      <canvas id="cvR"></canvas>
+    </div>
+  </main>
+
+  <aside class="right">
+    <div class="sec">
+      <h3>클릭 모드</h3>
+      <div class="mode">
+        <button class="crop sel" id="modeCrop" title="1">● 작물 (1)</button>
+        <button class="bg" id="modeBg" title="2">● 배경 (2)</button>
+      </div>
+      <div class="muted" style="margin-top:6px;font-size:12px">좌클릭 = 선택한 모드 · 우클릭 = 반대 모드</div>
+    </div>
+
+    <div class="sec">
+      <h3>객체 <span class="sp"></span><button id="resetBtn" title="현재 이미지의 점 · 객체 · 브러시를 모두 지우기 (Ctrl+Z 로 되돌리기)">전체 지우기</button><button id="addObj" title="N">＋ 새 객체 (N)</button></h3>
+      <div id="objList"></div>
+    </div>
+
+    <div class="sec">
+      <h3>점 목록 <span class="sp"></span><button id="clearPts" title="C">모두 지우기</button></h3>
+      <table class="pts" id="ptTable"></table>
+      <div class="muted" id="ptEmpty" style="font-size:12px">점이 없습니다</div>
+    </div>
+
+    <div class="sec">
+      <h3>마스크 후보</h3>
+      <div class="cands" id="cands"><span class="muted">-</span></div>
+      <div class="row"><label class="ck"><input type="checkbox" id="alwaysMulti">점이 여러 개여도 후보 3개 보기</label></div>
+    </div>
+
+    <div class="sec" id="brushSec">
+      <h3>브러시 · 문질러 채우기</h3>
+      <div class="row"><button id="brushBtn" style="flex:1" title="B">🖌 브러시 켜기 (B)</button></div>
+      <div class="row"><div class="mode" style="flex:1">
+        <button class="crop sel" id="brushAdd" style="flex:1" title="칠해서 마스크에 추가">＋ 칠하기</button>
+        <button class="bg" id="brushErase" style="flex:1" title="문질러서 마스크에서 제거 (E)">－ 지우기 (E)</button></div></div>
+      <div class="row" style="flex-wrap:nowrap"><span class="muted" style="white-space:nowrap">크기</span><input type="range" id="brushSize" min="4" max="200" value="30"><span id="brushSizeTxt" class="muted" style="min-width:40px;text-align:right">30px</span></div>
+      <div class="muted" style="font-size:12px;margin-top:6px;line-height:1.5">켜고 채울 곳을 문지르세요. 우클릭 드래그 = 반대 동작 · <kbd>Alt</kbd>+휠 또는 <kbd>-</kbd> <kbd>=</kbd> 크기 · 점을 바꿔도 칠한 부분은 유지됩니다.</div>
+      <div class="row"><button id="brushClear" title="선택한 객체의 브러시 획만 지우기">이 객체의 브러시 지우기</button></div>
+    </div>
+
+    <div class="sec">
+      <h3>표시</h3>
+      <div class="row" style="flex-wrap:nowrap"><span class="muted" style="white-space:nowrap">마스크 투명도</span><input type="range" id="opacity" min="0" max="100" value="50"></div>
+      <div class="row"><label class="ck"><input type="checkbox" id="maskOnLeft" checked>입력창에도 마스크 표시</label></div>
+      <div class="row"><label class="ck"><input type="checkbox" id="ptsOnRight" checked>결과창에도 점 표시</label></div>
+      <div class="row"><label class="ck"><input type="checkbox" id="contour" checked>마스크 외곽선</label></div>
+    </div>
+
+    <div class="sec">
+      <h3>조작법</h3>
+      <div class="keys">
+        <span>좌클릭</span><span>점 추가 (현재 모드)</span>
+        <span>우클릭</span><span>반대 모드 점 추가</span>
+        <span>점 드래그</span><span>점 위치 이동</span>
+        <span>점 우클릭</span><span>점 삭제</span>
+        <span>점 더블클릭</span><span>작물 ↔ 배경 전환</span>
+        <span>휠</span><span>확대 / 축소</span>
+        <span><kbd>Space</kbd>+드래그</span><span>화면 이동 (휠클릭 드래그도 가능)</span>
+        <span><kbd>1</kbd> <kbd>2</kbd></span><span>작물 / 배경 모드</span>
+        <span><kbd>N</kbd></span><span>새 객체</span>
+        <span><kbd>Tab</kbd></span><span>다음 객체 선택</span>
+        <span><kbd>Del</kbd></span><span>선택한 점 삭제</span>
+        <span><kbd>C</kbd></span><span>현재 객체 점 모두 삭제</span>
+        <span><kbd>[</kbd> <kbd>]</kbd></span><span>마스크 후보 변경</span>
+        <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd></span><span>실행 취소 / 다시 실행</span>
+        <span><kbd>Ctrl</kbd>+<kbd>S</kbd></span><span>저장</span>
+        <span><kbd>A</kbd> <kbd>D</kbd></span><span>이전 / 다음 이미지</span>
+        <span><kbd>F</kbd> <kbd>M</kbd></span><span>화면 맞춤 / 결과 보기 전환</span>
+        <span><kbd>B</kbd></span><span>브러시 켜기 / 끄기</span>
+        <span><kbd>E</kbd></span><span>브러시 칠하기 ↔ 지우기</span>
+        <span><kbd>-</kbd> <kbd>=</kbd></span><span>브러시 크기 (Alt+휠도 가능)</span>
+      </div>
+    </div>
+  </aside>
+
+  <div id="newJob"><div class="box">
+    <h2>↺ 새 작업 시작</h2>
+    <div class="muted" style="font-size:13px">지금 폴더의 작업을 마치고, 새로 라벨링할 이미지 폴더와 결과를 저장할 폴더를 고릅니다.</div>
+    <div class="cur" id="njCur"></div>
+    <div class="step"><b><i>1</i>이미지 폴더</b>
+      <div class="row" style="flex-wrap:nowrap"><input type="text" id="njImg" style="flex:1;min-width:0" placeholder="라벨링할 이미지가 있는 폴더"><button id="njImgPick">📁 찾아보기</button></div></div>
+    <div class="step"><b><i>2</i>저장 폴더</b>
+      <div class="row" style="flex-wrap:nowrap"><input type="text" id="njOut" style="flex:1;min-width:0" placeholder="비우면 기본 위치"><button id="njOutPick">📁 찾아보기</button></div>
+      <div class="hint">비워 두면 기본 위치 <code>문서\SAM_Labeler\labels\&lt;이미지폴더 이름&gt;</code> 에 저장합니다. 같은 폴더를 다시 고르면 이전 라벨을 이어서 수정할 수 있습니다.</div></div>
+    <div class="err" id="njErr"></div>
+    <div class="btns"><button id="njCancel">취소</button><button id="njStart" class="primary">새 작업 시작</button></div>
+  </div></div>
+
+  <div id="offline">
+    <div class="box">
+      <h2>SAM 서버가 실행되고 있지 않습니다</h2>
+      <p>이 화면은 라벨링 UI이고, 실제 분할(SAM)과 이미지 업로드·저장은 파이썬 서버가 처리합니다.</p>
+      <ol>
+        <li><b>weight_sam</b> 폴더의 <b>run_sam_label.bat</b> 을 더블클릭하세요.</li>
+        <li>검은 창에 <code>브라우저에서 열기: http://127.0.0.1:8765</code> 가 나오면 준비 완료입니다.</li>
+        <li>이 화면은 자동으로 다시 연결됩니다. (검은 창은 사용하는 동안 닫지 마세요)</li>
+      </ol>
+      <p class="muted">연결을 기다리는 중…</p>
+    </div>
+  </div>
+
+  <footer><span id="msg">준비</span><span class="grow" style="flex:1"></span><span id="coord"></span><span id="zoomTxt"></span></footer>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const COLORS = ['#2ecc71','#3498db','#f1c40f','#9b59b6','#e67e22','#1abc9c','#e74c3c','#ec70be','#95a5a6','#27ae60'];
+const HIT_R = 9;
+// html 파일을 더블클릭해서 연 경우(file://)에도 로컬 SAM 서버로 연결
+const API = location.protocol.startsWith('http') ? '' : 'http://127.0.0.1:8765';
+
+const S = {
+  images: [], cur: null, img: null, W: 0, H: 0,
+  objects: [], active: 0, selPt: null,        // selPt = {o, i}
+  view: {s: 1, ox: 0, oy: 0},
+  mode: 1, weight: null,
+  undo: [], redo: [], dirty: false,
+  viewMode: 'overlay', busy: 0, loadToken: 0,
+  brush: false, brushErase: false, brushSize: 30, hover: null, stroking: false,
+};
+let objSeq = 0;
+
+// ---------------- API ----------------
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)};
+  const r = await fetch(API + path, opt);
+  const j = await r.json().catch(() => ({error: r.statusText}));
+  if (!r.ok || j.error) throw new Error(j.error || r.statusText);
+  return j;
+}
+function msg(t, err) { const m = $('msg'); m.textContent = t; m.className = err ? 'err' : ''; }
+function setStat(t, cls) { const s = $('stat'); s.textContent = t; s.className = 'badge ' + (cls || ''); }
+async function busy(label, fn) {
+  S.busy++; setStat(label, 'busy');
+  try { return await fn(); }
+  finally { if (--S.busy === 0) setStat(`${S.weight || '-'} · ${S.device || ''}`, 'ok'); }
+}
+
+// ---------------- 객체 / 상태 ----------------
+function newObject(name) {
+  const id = ++objSeq;
+  return {id, name: name || `작물 ${S.objects.length + 1}`, color: COLORS[(id - 1) % COLORS.length],
+          points: [], strokes: [], cands: [], candIdx: 0, userPick: false, seq: 0, colored: null, maskImg: null, pending: false};
+}
+const activeObj = () => S.objects[S.active];
+function snapshot() {
+  // 완성된 브러시 획은 바뀌지 않으므로 배열만 복사
+  return {active: S.active, objects: S.objects.map(o => ({id: o.id, name: o.name, color: o.color,
+          points: o.points.map(p => ({...p})), strokes: o.strokes.slice(), candIdx: o.candIdx, userPick: o.userPick}))};
+}
+function pushUndo() { S.undo.push(snapshot()); if (S.undo.length > 200) S.undo.shift(); S.redo = []; S.dirty = true; }
+function restore(snap) {
+  const old = new Map(S.objects.map(o => [o.id, o]));
+  S.objects = snap.objects.map(s => {
+    const o = old.get(s.id);
+    if (o && JSON.stringify(o.points) === JSON.stringify(s.points)) {
+      o.name = s.name;
+      const strokesChanged = o.strokes.length !== s.strokes.length || o.strokes.some((x, i) => x !== s.strokes[i]);
+      if (strokesChanged) o.strokes = s.strokes.slice();
+      if (o.candIdx !== s.candIdx && o.cands[s.candIdx]) { o.candIdx = s.candIdx; o.userPick = s.userPick; applyCand(o); }
+      else if (strokesChanged) applyCand(o);
+      return o;
+    }
+    const n = Object.assign(o || newObject(), {name: s.name, color: s.color, points: s.points, strokes: s.strokes.slice(), candIdx: s.candIdx, userPick: s.userPick});
+    n.id = s.id; predict(n);
+    return n;
+  });
+  S.active = Math.min(snap.active, S.objects.length - 1);
+  S.selPt = null; S.dirty = true;
+  refreshUI(); draw();
+}
+function undo() { if (!S.undo.length) return; S.redo.push(snapshot()); restore(S.undo.pop()); }
+function redo() { if (!S.redo.length) return; S.undo.push(snapshot()); restore(S.redo.pop()); }
+
+// ---------------- 예측 ----------------
+async function predict(o) {
+  if (!S.cur) return;
+  const token = S.loadToken;
+  const seq = ++o.seq;
+  const pos = o.points.filter(p => p.l === 1).length;
+  if (!pos) { o.cands = []; o.pending = false; applyCand(o); return; }   // 점이 없어도 브러시로 칠한 부분은 남김
+  if (o.inflight) { o.pending = true; return; }         // 드래그 중: 진행 중인 요청 끝나면 다시
+  o.inflight = true; o.pending = false;
+  const multi = o.points.length === 1 || $('alwaysMulti').checked;
+  try {
+    const r = await api('/api/predict', {name: S.cur, points: o.points.map(p => [p.x, p.y]), labels: o.points.map(p => p.l), multimask: multi});
+    if (token !== S.loadToken) return;
+    if (seq === o.seq) {
+      const imgs = await Promise.all(r.masks.map(loadB64));
+      if (token !== S.loadToken) return;
+      o.cands = r.masks.map((b, i) => ({b64: b, score: r.scores[i], img: imgs[i]}));
+      if (!o.userPick || o.candIdx >= o.cands.length) {
+        o.candIdx = r.scores.indexOf(Math.max(...r.scores)); o.userPick = false;
+      }
+      applyCand(o);
+      msg(`예측 ${(r.sec * 1000).toFixed(0)}ms · 점수 ${o.cands[o.candIdx].score.toFixed(3)}`);
+    }
+  } catch (e) { msg('예측 실패: ' + e.message, true); }
+  finally {
+    o.inflight = false;
+    if (token === S.loadToken && (o.pending || seq !== o.seq)) { o.pending = false; predict(o); }
+  }
+}
+function loadB64(b64) { return new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = 'data:image/png;base64,' + b64; }); }
+function applyCand(o) {
+  const c = o.cands[o.candIdx];
+  o.baseImg = c ? c.img : null;
+  rebuildMask(o);
+  invalidate(); refreshCands(); refreshObjList(); draw();
+}
+
+// ---------------- 브러시 (문질러 채우기 / 지우기) ----------------
+// 최종 마스크 = SAM 마스크 위에 브러시 획을 순서대로 적용 (칠하기: 추가, 지우기: 제거)
+function rebuildMask(o) {
+  o.colored = null; o.edge = null;
+  if (!o.strokes.length) { o.comp = null; o.maskImg = o.baseImg || null; return; }
+  const c = o.comp || document.createElement('canvas');
+  c.width = S.W; c.height = S.H;                       // 크기를 다시 지정하면 캔버스가 비워짐
+  const g = c.getContext('2d', {willReadFrequently: true});
+  if (o.baseImg) g.drawImage(o.baseImg, 0, 0);
+  for (const s of o.strokes) paintStroke(g, s, 0);
+  o.comp = c; o.maskImg = c;
+}
+function paintStroke(g, s, from) {
+  const p = s.pts;
+  g.save();
+  g.globalCompositeOperation = s.m === 'erase' ? 'destination-out' : 'source-over';
+  g.fillStyle = g.strokeStyle = '#fff';
+  g.lineWidth = s.r * 2; g.lineCap = g.lineJoin = 'round';
+  g.beginPath();
+  if (p.length === 1) { g.arc(p[0][0], p[0][1], s.r, 0, Math.PI * 2); g.fill(); }
+  else {
+    const st = Math.max(0, from - 1);
+    g.moveTo(p[st][0], p[st][1]);
+    for (let i = st + 1; i < p.length; i++) g.lineTo(p[i][0], p[i][1]);
+    g.stroke();
+  }
+  g.restore();
+}
+function maskB64(o) {
+  if (o.comp) return o.comp.toDataURL('image/png').split(',')[1];
+  const c = o.cands[o.candIdx];
+  return c ? c.b64 : null;
+}
+function setBrush(on) {
+  S.brush = on;
+  for (const id of ['brushBtn', 'brushTool']) { $(id).classList.toggle('on', on); $(id).classList.toggle('primary', on); }
+  $('brushBtn').textContent = on ? '🖌 브러시 끄기 (B)' : '🖌 브러시 켜기 (B)';
+  $('brushSec').classList.toggle('active', on);
+  cvL.style.cursor = cvR.style.cursor = 'crosshair';
+  msg(on ? '브러시: 채울 곳을 문지르세요 (우클릭 드래그 = 반대 동작)' : '점 찍기 모드');
+  draw();
+}
+function setBrushErase(er) {
+  S.brushErase = er;
+  $('brushAdd').classList.toggle('sel', !er); $('brushErase').classList.toggle('sel', er);
+  draw();
+}
+function setBrushSize(v) {
+  S.brushSize = Math.max(4, Math.min(200, Math.round(v)));
+  $('brushSize').value = S.brushSize; $('brushSizeTxt').textContent = S.brushSize + 'px';
+  draw();
+}
+function clearBrush() {
+  const o = activeObj(); if (!o || !o.strokes.length) return;
+  pushUndo(); o.strokes = []; applyCand(o); msg('이 객체의 브러시 획을 지웠습니다');
+}
+// 현재 이미지의 점 · 객체 · 브러시를 모두 지우고 새로 시작 (Ctrl+Z 로 되돌리기 가능)
+function resetLabels() {
+  if (!S.img) return;
+  if (hasContent() && !confirm('현재 이미지의 점 · 객체 · 브러시를 모두 지우고 새로 시작할까요?\n(Ctrl+Z 로 되돌릴 수 있고, 저장하기 전까지 저장된 파일은 바뀌지 않습니다)')) return;
+  pushUndo();
+  S.objects = []; S.objects.push(newObject()); S.active = 0; S.selPt = null;
+  invalidate(); refreshUI(); draw();
+  msg('이 이미지의 라벨을 모두 지웠습니다 · 새로 점을 찍으세요 (Ctrl+Z 로 되돌리기)');
+}
+function tint(img, color) {
+  const c = document.createElement('canvas'); c.width = S.W; c.height = S.H;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = 'source-in'; g.fillStyle = color; g.fillRect(0, 0, S.W, S.H);
+  return c;
+}
+function coloredOf(o) { if (!o.colored && o.maskImg) o.colored = tint(o.maskImg, o.color); return o.colored; }
+function edgeOf(o) {
+  // 마스크 외곽선 = 마스크 − 침식(마스크 ∩ 4방향으로 k px 이동한 마스크)
+  if (o.edge || !o.maskImg) return o.edge;
+  const k = Math.max(1, Math.round(Math.max(S.W, S.H) / 900));
+  const er = document.createElement('canvas'); er.width = S.W; er.height = S.H;
+  const e = er.getContext('2d');
+  e.drawImage(o.maskImg, 0, 0);
+  e.globalCompositeOperation = 'destination-in';
+  for (const [dx, dy] of [[k,0],[-k,0],[0,k],[0,-k]]) e.drawImage(o.maskImg, dx, dy);
+  const out = document.createElement('canvas'); out.width = S.W; out.height = S.H;
+  const q = out.getContext('2d');
+  q.drawImage(coloredOf(o), 0, 0);
+  q.globalCompositeOperation = 'destination-out';
+  q.drawImage(er, 0, 0);
+  o.edge = out;
+  return out;
+}
+let cutoutCache = null;
+function invalidate() { cutoutCache = null; }
+function cutout() {
+  if (cutoutCache) return cutoutCache;
+  const c = document.createElement('canvas'); c.width = S.W; c.height = S.H;
+  const g = c.getContext('2d');
+  for (const o of S.objects) if (o.maskImg) g.drawImage(o.maskImg, 0, 0);
+  g.globalCompositeOperation = 'source-in'; g.drawImage(S.img, 0, 0);
+  return cutoutCache = c;
+}
+
+// ---------------- 그리기 ----------------
+const cvL = $('cvL'), cvR = $('cvR');
+function sizeCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  return dpr;
+}
+function fit() {
+  if (!S.img) return;
+  const r = cvL.getBoundingClientRect();
+  const s = Math.min(r.width / S.W, r.height / S.H) * 0.97;
+  S.view = {s, ox: (r.width - S.W * s) / 2, oy: (r.height - S.H * s) / 2};
+  draw();
+}
+let rafId = 0;
+function draw() { if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; drawPane(cvL, true); drawPane(cvR, false); }); }
+function drawPane(cv, left) {
+  const dpr = sizeCanvas(cv), g = cv.getContext('2d'), v = S.view;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = '#0e0f13'; g.fillRect(0, 0, cv.width, cv.height);
+  if (!S.img) return;
+  g.setTransform(dpr * v.s, 0, 0, dpr * v.s, dpr * v.ox, dpr * v.oy);
+  g.imageSmoothingEnabled = v.s < 2;
+  const op = $('opacity').value / 100;
+  const edges = $('contour').checked && !S.stroking;   // 브러시로 문지르는 동안에는 외곽선 계산을 건너뜀 (속도)
+  if (left) {
+    g.drawImage(S.img, 0, 0);
+    if ($('maskOnLeft').checked) {
+      g.globalAlpha = op * 0.6;
+      for (const o of S.objects) if (o.maskImg) g.drawImage(coloredOf(o), 0, 0);
+      g.globalAlpha = 1;
+      if (edges) for (const o of S.objects) if (o.maskImg) g.drawImage(edgeOf(o), 0, 0);
+    }
+  } else {
+    const m = S.viewMode;
+    if (m === 'overlay') {
+      g.drawImage(S.img, 0, 0);
+      g.globalAlpha = op;
+      for (const o of S.objects) if (o.maskImg) g.drawImage(coloredOf(o), 0, 0);
+      g.globalAlpha = 1;
+      if (edges) for (const o of S.objects) if (o.maskImg) g.drawImage(edgeOf(o), 0, 0);
+    } else if (m === 'binary' || m === 'color') {
+      g.fillStyle = '#000'; g.fillRect(0, 0, S.W, S.H);
+      for (const o of S.objects) if (o.maskImg) g.drawImage(m === 'binary' ? o.maskImg : coloredOf(o), 0, 0);
+    } else {
+      drawChecker(g);
+      g.drawImage(cutout(), 0, 0);
+    }
+  }
+  if (left || $('ptsOnRight').checked) drawPoints(g, dpr);
+  if (S.brush && S.hover) drawBrushCursor(g, dpr);
+}
+function drawBrushCursor(g, dpr) {
+  const v = S.view, x = S.hover.x * v.s + v.ox, y = S.hover.y * v.s + v.oy, r = S.brushSize / 2;
+  const erase = S.brushErase !== !!S.hover.right;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+  g.setLineDash(erase ? [5, 4] : []);
+  g.lineWidth = 1.6; g.strokeStyle = erase ? '#ff4d5e' : '#fff'; g.stroke();
+  g.setLineDash([]);
+  g.beginPath(); g.moveTo(x - 4, y); g.lineTo(x + 4, y); if (!erase) { g.moveTo(x, y - 4); g.lineTo(x, y + 4); }
+  g.strokeStyle = erase ? '#ff4d5e' : '#fff'; g.stroke();
+}
+function drawChecker(g) {
+  g.fillStyle = '#2a2d35'; g.fillRect(0, 0, S.W, S.H);
+  const t = 16 / S.view.s; g.fillStyle = '#34373f';
+  const x0 = 0, y0 = 0;
+  for (let y = y0, r = 0; y < S.H; y += t, r++) for (let x = x0 + (r % 2) * t; x < S.W; x += 2 * t) g.fillRect(x, y, Math.min(t, S.W - x), Math.min(t, S.H - y));
+}
+function drawPoints(g, dpr) {
+  const v = S.view;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  S.objects.forEach((o, oi) => {
+    const act = oi === S.active;
+    o.points.forEach((p, pi) => {
+      const x = p.x * v.s + v.ox, y = p.y * v.s + v.oy;
+      const r = act ? 7 : 5;
+      const sel = S.selPt && S.selPt.o === oi && S.selPt.i === pi;
+      g.globalAlpha = act ? 1 : 0.55;
+      g.beginPath(); g.arc(x, y, r + 2, 0, Math.PI * 2);
+      g.fillStyle = sel ? '#ffffff' : (act ? o.color : '#000'); g.fill();
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+      g.fillStyle = p.l === 1 ? '#2ecc71' : '#ff4d5e'; g.fill();
+      g.strokeStyle = '#fff'; g.lineWidth = 1.6;
+      g.beginPath(); g.moveTo(x - r * 0.5, y); g.lineTo(x + r * 0.5, y);
+      if (p.l === 1) { g.moveTo(x, y - r * 0.5); g.lineTo(x, y + r * 0.5); }
+      g.stroke();
+      if (act) { g.font = '11px Segoe UI'; g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3;
+        g.strokeText(pi + 1, x + r + 3, y - r); g.fillText(pi + 1, x + r + 3, y - r); }
+    });
+  });
+  g.globalAlpha = 1;
+}
+
+// ---------------- 마우스 조작 ----------------
+function toImg(cv, e) {
+  const r = cv.getBoundingClientRect();
+  return {sx: e.clientX - r.left, sy: e.clientY - r.top,
+          x: (e.clientX - r.left - S.view.ox) / S.view.s, y: (e.clientY - r.top - S.view.oy) / S.view.s};
+}
+function hitTest(sx, sy) {
+  // 활성 객체 우선
+  const order = [S.active, ...S.objects.map((_, i) => i).filter(i => i !== S.active)];
+  for (const oi of order) {
+    const o = S.objects[oi]; if (!o) continue;
+    for (let pi = o.points.length - 1; pi >= 0; pi--) {
+      const p = o.points[pi];
+      if (Math.hypot(p.x * S.view.s + S.view.ox - sx, p.y * S.view.s + S.view.oy - sy) <= HIT_R) return {o: oi, i: pi};
+    }
+  }
+  return null;
+}
+let drag = null, spaceDown = false;
+function clampPt(p) { p.x = Math.max(0, Math.min(S.W - 1, p.x)); p.y = Math.max(0, Math.min(S.H - 1, p.y)); }
+function onDown(e) {
+  if (!S.img) return;
+  const cv = e.currentTarget; const m = toImg(cv, e);
+  cv.setPointerCapture(e.pointerId);
+  if (e.button === 1 || (e.button === 0 && spaceDown)) {
+    drag = {type: 'pan', sx: e.clientX, sy: e.clientY, ox: S.view.ox, oy: S.view.oy}; cv.style.cursor = 'grabbing'; e.preventDefault(); return;
+  }
+  if (S.brush && (e.button === 0 || e.button === 2)) {   // 브러시: 좌 = 선택한 동작, 우 = 반대 동작
+    pushUndo();
+    if (!S.objects.length) S.objects.push(newObject());
+    const o = activeObj();
+    const erase = (e.button === 2) !== S.brushErase;
+    const s = {m: erase ? 'erase' : 'add', r: S.brushSize / 2 / S.view.s, pts: [[m.x, m.y]]};
+    o.strokes.push(s);
+    rebuildMask(o);
+    S.stroking = true; S.hover = {x: m.x, y: m.y, right: e.button === 2};
+    drag = {type: 'brush', o, s};
+    invalidate(); draw(); return;
+  }
+  const hit = hitTest(m.sx, m.sy);
+  if (e.button === 2) {
+    if (hit) { pushUndo(); const o = S.objects[hit.o]; o.points.splice(hit.i, 1); S.active = hit.o; S.selPt = null; o.userPick = false; predict(o); }
+    else addPoint(m, 1 - S.mode);
+    refreshUI(); draw(); return;
+  }
+  if (e.button !== 0) return;
+  if (hit) {
+    S.active = hit.o; S.selPt = hit;
+    drag = {type: 'pt', hit, moved: false, snap: snapshot()};
+    refreshUI(); draw(); return;
+  }
+  addPoint(m, S.mode);
+}
+function addPoint(m, label) {
+  if (m.x < 0 || m.y < 0 || m.x >= S.W || m.y >= S.H) return;
+  pushUndo();
+  if (!S.objects.length) S.objects.push(newObject());
+  const o = activeObj();
+  const p = {x: Math.round(m.x * 10) / 10, y: Math.round(m.y * 10) / 10, l: label};
+  o.points.push(p); S.lastAdd = {p, t: performance.now()};
+  S.selPt = {o: S.active, i: o.points.length - 1};
+  o.userPick = false;
+  predict(o); refreshUI(); draw();
+}
+function onMove(e) {
+  const cv = e.currentTarget; const m = toImg(cv, e);
+  if (S.img) $('coord').textContent = (m.x >= 0 && m.y >= 0 && m.x < S.W && m.y < S.H) ? `x ${m.x.toFixed(0)}, y ${m.y.toFixed(0)}` : '';
+  if (S.brush && S.img) { S.hover = {x: m.x, y: m.y, right: drag && drag.type === 'brush' ? S.hover && S.hover.right : false}; if (!drag) draw(); }
+  if (!drag) { cv.style.cursor = spaceDown ? 'grab' : (S.img && !S.brush && hitTest(m.sx, m.sy) ? 'move' : 'crosshair'); return; }
+  if (drag.type === 'pan') {
+    S.view.ox = drag.ox + e.clientX - drag.sx; S.view.oy = drag.oy + e.clientY - drag.sy; draw();
+  } else if (drag.type === 'brush') {
+    const {o, s} = drag, last = s.pts[s.pts.length - 1];
+    if (Math.hypot(m.x - last[0], m.y - last[1]) < Math.max(0.5, s.r * 0.25)) return;   // 너무 촘촘한 점은 건너뜀
+    s.pts.push([m.x, m.y]);
+    paintStroke(o.comp.getContext('2d'), s, s.pts.length - 1);
+    o.colored = null; o.edge = null; invalidate(); draw();
+  } else {
+    const o = S.objects[drag.hit.o], p = o.points[drag.hit.i];
+    if (!drag.moved) { S.undo.push(drag.snap); S.redo = []; S.dirty = true; drag.moved = true; }
+    p.x = Math.round(m.x * 10) / 10; p.y = Math.round(m.y * 10) / 10; clampPt(p);
+    predict(o); refreshPts(); draw();
+  }
+}
+function onUp(e) {
+  const cv = e.currentTarget;
+  if (drag && drag.type === 'pt' && drag.moved) predict(S.objects[drag.hit.o]);
+  if (drag && drag.type === 'brush') {
+    // 좌표를 줄여서 저장 파일 크기를 줄임
+    drag.s.r = Math.round(drag.s.r * 100) / 100;
+    drag.s.pts = drag.s.pts.map(p => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10]);
+    S.stroking = false; if (S.hover) S.hover.right = false;
+    drag.o.edge = null; refreshObjList(); draw();
+  }
+  drag = null; cv.style.cursor = spaceDown ? 'grab' : 'crosshair';
+}
+function onDbl(e) {
+  if (S.brush) return;
+  const m = toImg(e.currentTarget, e); const hit = hitTest(m.sx, m.sy);
+  if (!hit) return;
+  // 빈 곳을 더블클릭해서 방금 생긴 점이면 전환하지 않음
+  const o = S.objects[hit.o];
+  if (S.lastAdd && S.lastAdd.p === o.points[hit.i] && performance.now() - S.lastAdd.t < 600) return;
+  flipPoint(hit);
+}
+function flipPoint(hit) {
+  pushUndo();
+  const o = S.objects[hit.o]; o.points[hit.i].l ^= 1; o.userPick = false;
+  predict(o); refreshUI(); draw();
+}
+function onWheel(e) {
+  if (!S.img) return; e.preventDefault();
+  const m = toImg(e.currentTarget, e);
+  if (S.brush && e.altKey) { setBrushSize(S.brushSize * Math.exp(-e.deltaY * 0.002)); return; }   // Alt+휠 = 브러시 크기
+  const f = Math.exp(-e.deltaY * 0.0015);
+  const s = Math.max(0.02, Math.min(40, S.view.s * f));
+  S.view.ox = m.sx - m.x * s; S.view.oy = m.sy - m.y * s; S.view.s = s;
+  $('zoomTxt').textContent = `${(s * 100).toFixed(0)}%`;
+  draw();
+}
+for (const cv of [cvL, cvR]) {
+  cv.addEventListener('pointerdown', onDown);
+  cv.addEventListener('pointermove', onMove);
+  cv.addEventListener('pointerup', onUp);
+  cv.addEventListener('pointercancel', onUp);
+  cv.addEventListener('dblclick', onDbl);
+  cv.addEventListener('wheel', onWheel, {passive: false});
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('pointerleave', () => { $('coord').textContent = ''; if (S.hover && !S.stroking) { S.hover = null; draw(); } });
+}
+new ResizeObserver(() => draw()).observe($('main'));
+
+// ---------------- 사이드 패널 ----------------
+function refreshUI() { refreshObjList(); refreshPts(); refreshCands(); }
+function refreshObjList() {
+  const el = $('objList'); el.innerHTML = '';
+  S.objects.forEach((o, i) => {
+    const d = document.createElement('div'); d.className = 'obj' + (i === S.active ? ' act' : '');
+    const c = o.cands[o.candIdx];
+    const pos = o.points.filter(p => p.l).length, neg = o.points.length - pos;
+    d.innerHTML = `<span class="sw" style="background:${o.color}"></span><input value=""><span class="meta">+${pos} −${neg}${o.strokes.length ? ' · 🖌' + o.strokes.length : ''}${c ? ' · ' + c.score.toFixed(2) : ''}</span><button class="x" title="객체 삭제">✕</button>`;
+    const inp = d.querySelector('input'); inp.value = o.name;
+    inp.onchange = () => { pushUndo(); o.name = inp.value; };
+    inp.onkeydown = ev => { ev.stopPropagation(); if (ev.key === 'Enter') inp.blur(); };
+    d.onclick = ev => { if (ev.target.tagName === 'BUTTON') return; S.active = i; S.selPt = null; refreshUI(); draw(); };
+    d.querySelector('.x').onclick = () => deleteObj(i);
+    el.appendChild(d);
+  });
+  if (!S.objects.length) el.innerHTML = '<span class="muted">이미지를 열면 객체가 생깁니다</span>';
+}
+function deleteObj(i) {
+  pushUndo(); S.objects.splice(i, 1);
+  if (!S.objects.length) S.objects.push(newObject());
+  S.active = Math.min(S.active, S.objects.length - 1); S.selPt = null;
+  invalidate(); refreshUI(); draw();
+}
+function refreshPts() {
+  const o = activeObj(), t = $('ptTable'); t.innerHTML = '';
+  $('ptEmpty').style.display = o && o.points.length ? 'none' : '';
+  if (!o) return;
+  o.points.forEach((p, i) => {
+    const tr = document.createElement('tr');
+    if (S.selPt && S.selPt.o === S.active && S.selPt.i === i) tr.className = 'sel';
+    tr.innerHTML = `<td>${i + 1}</td><td><span class="dot" style="background:${p.l ? 'var(--crop)' : 'var(--bgpt)'}"></span> ${p.l ? '작물' : '배경'}</td>
+      <td class="muted">${p.x.toFixed(0)}, ${p.y.toFixed(0)}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="x" data-a="flip" title="작물/배경 전환">⇄</button><button class="x" data-a="del" title="삭제">✕</button></td>`;
+    tr.onclick = ev => {
+      const a = ev.target.dataset.a;
+      if (a === 'flip') return flipPoint({o: S.active, i});
+      if (a === 'del') { pushUndo(); o.points.splice(i, 1); S.selPt = null; o.userPick = false; predict(o); refreshUI(); draw(); return; }
+      S.selPt = {o: S.active, i}; refreshPts(); draw();
+    };
+    t.appendChild(tr);
+  });
+}
+function refreshCands() {
+  const o = activeObj(), el = $('cands'); el.innerHTML = '';
+  if (!o || !o.cands.length) { el.innerHTML = '<span class="muted">-</span>'; return; }
+  o.cands.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.textContent = `후보 ${i + 1} · ${c.score.toFixed(3)}`;
+    if (i === o.candIdx) b.className = 'on';
+    b.onclick = () => pickCand(o, i);
+    el.appendChild(b);
+  });
+}
+function pickCand(o, i) {
+  if (!o.cands[i] || i === o.candIdx) return;
+  pushUndo(); o.candIdx = i; o.userPick = true; applyCand(o);
+}
+function setMode(m) { S.mode = m; $('modeCrop').classList.toggle('sel', m === 1); $('modeBg').classList.toggle('sel', m === 0); }
+$('modeCrop').onclick = () => setMode(1);
+$('modeBg').onclick = () => setMode(0);
+$('addObj').onclick = addObject;
+function addObject() {
+  if (!S.img) return;
+  const o = activeObj();
+  if (o && !o.points.length) return;            // 빈 객체가 이미 선택되어 있음
+  pushUndo(); S.objects.push(newObject()); S.active = S.objects.length - 1; S.selPt = null;
+  refreshUI(); draw(); msg('새 객체: 점을 찍으세요');
+}
+$('clearPts').onclick = clearActive;
+$('resetBtn').onclick = resetLabels;
+
+// ---------------- 새 작업 (다른 이미지 폴더 · 저장 폴더로 새로 시작) ----------------
+function openNewJob() {
+  const done = S.images.filter(x => x.done).length;
+  $('njCur').textContent = `현재 작업 · 이미지 ${$('dirInput').value || '-'} (${done}/${S.images.length} 완료) · 저장 ${S.outputDir || '-'}`;
+  $('njImg').value = ''; $('njOut').value = ''; $('njErr').textContent = '';
+  $('newJob').classList.add('open'); $('njImg').focus();
+}
+function closeNewJob() { $('newJob').classList.remove('open'); }
+async function startNewJob() {
+  const img = $('njImg').value.trim(), out = $('njOut').value.trim();
+  if (!img) { $('njErr').textContent = '이미지 폴더를 선택하세요.'; return; }
+  $('njStart').disabled = true; $('njErr').textContent = '';
+  try {
+    if (!(await saveBeforeLeave())) return;          // 지금까지 작업은 이전 저장 폴더에 저장
+    await api('/api/set_output', {path: out});         // 저장 폴더를 먼저 확인 (쓸 수 없으면 여기서 중단)
+    const r = await api('/api/set_dir', {path: img});
+    S.cur = null; S.img = null; S.objects = []; S.dirty = false; S.undo = []; S.redo = []; ++S.loadToken;
+    $('emptyL').style.display = ''; refreshUI(); draw();
+    closeNewJob();
+    await loadImages();
+    msg(`새 작업 · 이미지 ${r.image_dir} (${S.images.length}장) · 저장 ${S.outputDir}`);
+  } catch (e) { $('njErr').textContent = e.message; }
+  finally { $('njStart').disabled = false; }
+}
+$('newJobBtn').onclick = openNewJob;
+$('njCancel').onclick = closeNewJob;
+$('njStart').onclick = startNewJob;
+$('njImgPick').onclick = async () => { const p = await pickDir('images'); if (p) $('njImg').value = p; };
+$('njOutPick').onclick = async () => { const p = await pickDir('output'); if (p) $('njOut').value = p; };
+for (const id of ['njImg', 'njOut']) $(id).onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') startNewJob(); if (e.key === 'Escape') closeNewJob(); };
+$('newJob').addEventListener('mousedown', e => { if (e.target.id === 'newJob') closeNewJob(); });
+$('brushBtn').onclick = $('brushTool').onclick = () => setBrush(!S.brush);
+$('brushAdd').onclick = () => setBrushErase(false);
+$('brushErase').onclick = () => setBrushErase(true);
+$('brushSize').addEventListener('input', e => setBrushSize(+e.target.value));
+$('brushClear').onclick = clearBrush;
+function clearActive() {
+  const o = activeObj(); if (!o || !o.points.length) return;
+  pushUndo(); o.points = []; S.selPt = null; o.userPick = false; predict(o); refreshUI(); draw();
+}
+for (const id of ['opacity', 'maskOnLeft', 'ptsOnRight', 'contour']) $(id).addEventListener('input', draw);
+$('alwaysMulti').onchange = () => S.objects.forEach(o => { o.userPick = false; predict(o); });
+$('viewMode').onchange = e => { S.viewMode = e.target.value; draw(); };
+document.querySelectorAll('[data-fit]').forEach(b => b.onclick = fit);
+
+// ---------------- 이미지 / 가중치 ----------------
+async function loadImages(keep) {
+  const r = await api('/api/images');
+  S.images = r.images;
+  $('dirInput').value = r.image_dir;
+  showOutput(r.output_dir, r.custom_output);
+  renderList();
+  if (!keep && S.images.length && !S.cur) openImage(S.images[0].name);
+}
+function renderList() {
+  const ul = $('imgList'); ul.innerHTML = '';
+  S.images.forEach((it, i) => {
+    const li = document.createElement('li');
+    li.className = it.name === S.cur ? 'cur' : '';
+    li.innerHTML = `<span class="chk">${it.done ? '✔' : ''}</span><span class="n"></span>`;
+    li.querySelector('.n').textContent = it.name; li.title = it.name;
+    li.onclick = () => openImage(it.name);
+    ul.appendChild(li);
+  });
+  const idx = S.images.findIndex(x => x.name === S.cur);
+  $('imgPos').textContent = S.images.length ? `${idx + 1} / ${S.images.length}` : '0 / 0';
+  $('doneCnt').textContent = `${S.images.filter(x => x.done).length}/${S.images.length} 완료`;
+  if (!S.images.length) ul.innerHTML = '<li class="muted" style="cursor:default">이미지가 없습니다</li>';
+  const cur = ul.querySelector('.cur'); if (cur) cur.scrollIntoView({block: 'nearest'});
+}
+function hasContent() { return S.objects.some(o => o.points.length || o.strokes.length); }
+async function openImage(name) {
+  if (name === S.cur) return;
+  if (S.cur && S.dirty && hasContent()) {
+    if ($('autoSave').checked) { if (!(await save())) return; }
+    else if (!confirm('저장하지 않은 변경 사항이 있습니다. 이동할까요?')) return;
+  }
+  const token = ++S.loadToken;
+  S.cur = name; renderList();
+  msg('이미지 불러오는 중…');
+  try {
+    const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('이미지 로드 실패')); im.src = API + '/api/image?name=' + encodeURIComponent(name) + '&t=' + Date.now(); });
+    const ann = await api('/api/annotation?name=' + encodeURIComponent(name));
+    if (token !== S.loadToken) return;
+    S.img = img; S.W = img.naturalWidth; S.H = img.naturalHeight;
+    S.undo = []; S.redo = []; S.dirty = false; S.selPt = null; invalidate();
+    objSeq = 0; S.objects = [];
+    for (const a of ann.objects || []) {
+      const o = newObject(a.name);
+      o.points = (a.points || []).map(p => ({x: p.x, y: p.y, l: p.l}));
+      o.strokes = (a.strokes || []).filter(t => t && t.pts && t.pts.length).map(t => ({m: t.m === 'erase' ? 'erase' : 'add', r: +t.r || 5, pts: t.pts}));
+      if (a.mask_index != null && a.user_pick) { o.candIdx = a.mask_index; o.userPick = true; }
+      S.objects.push(o);
+    }
+    if (!S.objects.length) S.objects.push(newObject());
+    S.active = 0;
+    $('emptyL').style.display = 'none';
+    fit(); refreshUI();
+    await busy('임베딩 계산 중…', async () => {
+      const r = await api('/api/embed', {name});
+      if (token === S.loadToken) msg(`${name} · ${S.W}×${S.H} · 임베딩 ${r.computed ? r.sec.toFixed(2) + 's' : '캐시'}${ann.objects ? ' · 저장된 라벨 불러옴' : ''}`);
+    });
+    if (token !== S.loadToken) return;
+    S.objects.forEach(o => predict(o));
+  } catch (e) { msg(e.message, true); }
+}
+function step(d) {
+  if (!S.images.length) return;
+  const i = S.images.findIndex(x => x.name === S.cur);
+  const j = Math.max(0, Math.min(S.images.length - 1, i + d));
+  if (j !== i) openImage(S.images[j].name);
+}
+$('prevBtn').onclick = () => step(-1);
+$('nextBtn').onclick = () => step(1);
+
+async function save() {
+  if (!S.cur) return false;
+  // 예측이 끝날 때까지 잠깐 대기
+  for (let k = 0; k < 100 && S.objects.some(o => o.inflight || o.pending); k++) await new Promise(r => setTimeout(r, 50));
+  const objects = S.objects.filter(o => o.points.length || o.strokes.length).map(o => {
+    const c = o.cands[o.candIdx];
+    return {name: o.name, color: o.color, points: o.points, strokes: o.strokes, mask_index: o.candIdx, user_pick: o.userPick, score: c ? c.score : null, mask_png: maskB64(o)};
+  });
+  try {
+    const r = await busy('저장 중…', () => api('/api/save', {name: S.cur, weight: S.weight, objects}));
+    S.dirty = false;
+    const it = S.images.find(x => x.name === S.cur); if (it) it.done = true;
+    renderList();
+    msg(`저장 완료 · 작물 비율 ${(r.ratio * 100).toFixed(1)}% · ${r.dir}`);
+    return true;
+  } catch (e) { msg('저장 실패: ' + e.message, true); return false; }
+}
+$('saveBtn').onclick = save;
+
+async function changeWeight(key) {
+  try {
+    await busy(`${key} 로딩 중…`, async () => {
+      const r = await api('/api/load_weight', {key});
+      S.weight = key;
+      msg(`${key} 로드 완료 (${r.sec.toFixed(1)}s)`);
+      if (S.cur) {
+        const e = await api('/api/embed', {name: S.cur});
+        msg(`${key} 로드 완료 · 임베딩 ${e.sec.toFixed(2)}s`);
+      }
+    });
+    S.objects.forEach(o => { o.userPick = false; predict(o); });
+  } catch (e) { msg('가중치 로드 실패: ' + e.message, true); $('weightSel').value = S.weight; }
+}
+$('weightSel').onchange = e => changeWeight(e.target.value);
+
+// 폴더를 바꾸기 전에 현재 작업을 저장 (자동저장이 꺼져 있으면 확인)
+async function saveBeforeLeave() {
+  if (!(S.cur && S.dirty && hasContent())) return true;
+  if ($('autoSave').checked) return await save();
+  return confirm('저장하지 않은 변경 사항이 있습니다. 계속할까요?');
+}
+async function openImageDir(path) {
+  if (!path) return;
+  try {
+    if (!(await saveBeforeLeave())) return;
+    await api('/api/set_dir', {path});
+    S.cur = null; S.img = null; S.objects = []; S.dirty = false; ++S.loadToken;
+    $('emptyL').style.display = ''; refreshUI(); draw();
+    await loadImages();
+    msg('이미지 폴더: ' + path);
+  } catch (e) { msg(e.message, true); }
+}
+function showOutput(dir, custom) {
+  S.outputDir = dir;
+  $('outInput').value = dir;
+  $('outInput').title = dir;
+  $('outTag').textContent = custom ? '직접 지정' : '기본';
+}
+async function setOutputDir(path) {
+  try {
+    if (!(await saveBeforeLeave())) return;   // 지금까지 작업은 이전 저장 폴더에 저장
+    const r = await api('/api/set_output', {path});
+    showOutput(r.output_dir, r.custom);
+    await loadImages(true);                    // 새 저장 폴더 기준으로 완료 표시 갱신
+    msg('저장 폴더: ' + r.output_dir);
+  } catch (e) { msg('저장 폴더 설정 실패: ' + e.message, true); $('outInput').value = S.outputDir || ''; }
+}
+async function pickDir(kind) {
+  msg('폴더 선택 창이 열렸습니다 (작업표시줄에 숨어 있을 수 있어요)');
+  try { return (await api('/api/pick_dir', {kind})).path; }
+  catch (e) { msg('폴더 선택 실패: ' + e.message, true); return ''; }
+}
+$('dirPick').onclick = async () => { const p = await pickDir('images'); if (p) openImageDir(p); else msg('취소됨'); };
+$('dirInput').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') openImageDir($('dirInput').value.trim()); };
+$('outPick').onclick = async () => { const p = await pickDir('output'); if (p) setOutputDir(p); else msg('취소됨'); };
+$('outReset').onclick = () => setOutputDir('');
+$('outInput').onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') setOutputDir($('outInput').value.trim()); };
+
+async function uploadFiles(files) {
+  let last = null;
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
+    const data = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(f); });
+    try { last = (await busy(`업로드 ${f.name}`, () => api('/api/upload', {filename: f.name, data}))).name; }
+    catch (e) { msg(e.message, true); }
+  }
+  await loadImages(true);
+  if (last) openImage(last);
+}
+$('uploadBtn').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => { uploadFiles([...e.target.files]); e.target.value = ''; };
+const paneL = $('paneL');
+paneL.addEventListener('dragover', e => { e.preventDefault(); $('dropHint').style.display = 'flex'; });
+paneL.addEventListener('dragleave', e => { if (e.target === $('dropHint')) $('dropHint').style.display = 'none'; });
+paneL.addEventListener('drop', e => { e.preventDefault(); $('dropHint').style.display = 'none'; uploadFiles([...e.dataTransfer.files]); });
+
+// ---------------- 키보드 ----------------
+window.addEventListener('keydown', e => {
+  if ($('newJob').classList.contains('open')) { if (e.key === 'Escape') closeNewJob(); return; }   // 새 작업 창이 열려 있으면 단축키 무시
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  const k = e.key.toLowerCase();
+  if (e.ctrlKey || e.metaKey) {
+    if (k === 's') { e.preventDefault(); save(); }
+    else if (k === 'z' && e.shiftKey) { e.preventDefault(); redo(); }
+    else if (k === 'z') { e.preventDefault(); undo(); }
+    else if (k === 'y') { e.preventDefault(); redo(); }
+    return;
+  }
+  if (e.key === ' ') { e.preventDefault(); if (!spaceDown) { spaceDown = true; cvL.style.cursor = cvR.style.cursor = 'grab'; } return; }
+  if (k === '1') setMode(1);
+  else if (k === '2') setMode(0);
+  else if (k === 'n') addObject();
+  else if (k === 'c') clearActive();
+  else if (k === 'b') setBrush(!S.brush);
+  else if (k === 'e') { if (!S.brush) setBrush(true); setBrushErase(!S.brushErase); }
+  else if (e.key === '-' || e.key === '_') setBrushSize(S.brushSize / 1.25);
+  else if (e.key === '=' || e.key === '+') setBrushSize(S.brushSize * 1.25);
+  else if (k === 'f') fit();
+  else if (k === 'a' || e.key === 'ArrowLeft') step(-1);
+  else if (k === 'd' || e.key === 'ArrowRight') step(1);
+  else if (k === 'm') { const s = $('viewMode'); s.selectedIndex = (s.selectedIndex + 1) % s.options.length; s.onchange({target: s}); }
+  else if (e.key === 'Tab') { e.preventDefault(); if (S.objects.length) { S.active = (S.active + (e.shiftKey ? S.objects.length - 1 : 1)) % S.objects.length; S.selPt = null; refreshUI(); draw(); } }
+  else if (e.key === '[' || e.key === ']') { const o = activeObj(); if (o && o.cands.length > 1) pickCand(o, (o.candIdx + (e.key === ']' ? 1 : o.cands.length - 1)) % o.cands.length); }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && S.selPt) {
+    e.preventDefault();
+    const o = S.objects[S.selPt.o]; if (!o || !o.points[S.selPt.i]) return;
+    pushUndo(); o.points.splice(S.selPt.i, 1); S.selPt = null; o.userPick = false; predict(o); refreshUI(); draw();
+  }
+});
+window.addEventListener('keyup', e => { if (e.key === ' ') { spaceDown = false; cvL.style.cursor = cvR.style.cursor = 'crosshair'; } });
+window.addEventListener('beforeunload', e => { if (S.dirty && hasContent()) { e.preventDefault(); e.returnValue = ''; } });
+
+// ---------------- 시작 ----------------
+(async function start() {
+  let info;
+  try { info = await api('/api/info'); }
+  catch (e) {
+    // 서버가 꺼져 있음 → 안내를 띄우고 2초마다 다시 연결 시도
+    setStat('서버 꺼짐');
+    $('offline').style.display = 'flex';
+    msg('SAM 서버에 연결할 수 없습니다. run_sam_label.bat 을 실행하세요 (자동으로 다시 연결합니다)', true);
+    setTimeout(start, 2000);
+    return;
+  }
+  $('offline').style.display = 'none';
+  try {
+    S.device = info.device; S.weight = info.current;
+    const sel = $('weightSel');
+    for (const w of info.weights) {
+      const op = new Option(w.label + (w.available ? '' : ' (파일 없음)'), w.key);
+      op.disabled = !w.available; sel.add(op);
+    }
+    sel.value = info.current;
+    setStat(`${S.weight} · ${S.device}`, 'ok');
+    await loadImages();
+    draw();
+  } catch (e) { setStat('서버 연결 실패'); msg(e.message, true); }
+})();
+</script>
+</body>
+</html>

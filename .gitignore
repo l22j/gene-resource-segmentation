@@ -1,0 +1,15 @@
+# 모델 가중치 (GitHub 100MB 제한 초과 - 별도 다운로드)
+*.pth
+*.pt
+*.safetensors
+*.bin
+sam3_weights/
+
+# 라벨링 작업 결과 / 개인 이미지
+images/
+
+# 로컬 환경
+.claude/
+__pycache__/
+*.pyc
+python/
