@@ -4,90 +4,95 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI 기반 이미지 세분화 시스템</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css">
 <style>
 :root{
-  --bg:#15171c; --panel:#1d2027; --panel2:#252933; --line:#323744; --text:#e6e8ee; --muted:#8b92a3;
-  --accent:#4f8cff; --crop:#2ecc71; --bgpt:#ff4d5e; --warn:#f5a623;
+  --bg:#dcecfb; --panel:#e9e9e8; --panel2:#dcdcdb; --line:#bfc1c5; --ink:#3a3d44; --text:#2a2d33; --muted:#7c8087;
+  --accent:#2a2d33; --crop:#2f8f4e; --bgpt:#d6453d; --warn:#b7791f; --stage:#d8d8d6;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 "Segoe UI","Malgun Gothic",sans-serif;overflow:hidden}
-button,select,input{font:inherit;color:inherit}
-button{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
-button:hover{border-color:#4a5163;background:#2c313c}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover{filter:brightness(1.1)}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 Pretendard,"Segoe UI","Malgun Gothic",sans-serif;letter-spacing:.03em;overflow:hidden}
+button,select,input{font:inherit;color:inherit;letter-spacing:inherit}
+button{background:transparent;border:1px solid var(--ink);border-radius:99px;padding:4px 14px;cursor:pointer}
+button:hover{background:var(--panel2)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+button.primary:hover{background:#43474f}
 button.on{outline:2px solid var(--accent);outline-offset:-1px}
-button:disabled{opacity:.45;cursor:default}
-select,input[type=text]{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
-#app{display:grid;grid-template-rows:48px 1fr 26px;grid-template-columns:220px 1fr 290px;height:100vh}
-header{grid-column:1/4;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line)}
-header h1{font-size:15px;margin:0 8px 0 0;white-space:nowrap}
+button:disabled{opacity:.4;cursor:default}
+select,input[type=text]{background:transparent;border:1px solid var(--ink);border-radius:99px;padding:4px 12px}
+select option{background:var(--panel)}
+#app{display:grid;grid-template-rows:46px 1fr 28px;grid-template-columns:220px 1fr 290px;height:calc(100vh - 14px);margin:14px 22px 0}
+header{grid-column:1/4;display:flex;align-items:flex-end;gap:10px;padding:0 0 7px;background:transparent}
+header h1{font-size:14px;font-weight:500;letter-spacing:.08em;margin:0 8px -7px 0;white-space:nowrap;align-self:flex-end;height:39px;display:flex;align-items:center;padding:0 40px 0 26px;background:var(--panel);
+  clip-path:polygon(0 100%,0 30%,14px 0,calc(100% - 26px) 0,100% 100%)}
 header .grow{flex:1}
-.badge{padding:2px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.badge{padding:1px 10px;border-radius:99px;background:transparent;border:1px solid var(--ink);color:var(--muted);white-space:nowrap}
 .badge.busy{color:var(--warn);border-color:var(--warn)}
-.badge.ok{color:var(--crop);border-color:#2a6b45}
-aside{background:var(--panel);overflow:auto;border-right:1px solid var(--line)}
-aside.right{border-right:none;border-left:1px solid var(--line)}
-.sec{padding:10px 12px;border-bottom:1px solid var(--line)}
-.sec h3{margin:0 0 8px;font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;display:flex;align-items:center;gap:6px}
+.badge.ok{color:var(--crop);border-color:var(--crop)}
+aside{background:var(--panel);overflow:auto;border-right:1px solid var(--ink)}
+aside.right{border-right:none;border-left:1px solid var(--ink)}
+.sec{padding:12px 14px;border-bottom:1px solid var(--line)}
+.sec h3{margin:0 0 8px;font-size:11px;color:var(--muted);font-weight:400;letter-spacing:.14em;display:flex;align-items:center;gap:6px}
 .sec h3 .sp{flex:1}
 .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .row+.row{margin-top:6px}
 #imgList{list-style:none;margin:0;padding:0}
-#imgList li{padding:6px 12px;cursor:pointer;display:flex;gap:6px;align-items:center;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#imgList li{padding:6px 14px;cursor:pointer;display:flex;gap:6px;align-items:center;border-left:3px solid transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #imgList li:hover{background:var(--panel2)}
-#imgList li.cur{background:#263552;border-left-color:var(--accent)}
+#imgList li.cur{background:var(--panel2);border-left-color:var(--ink)}
+#imgList li.cur span.n{text-decoration:underline;text-underline-offset:4px;text-decoration-thickness:1px}
 #imgList li .chk{width:14px;color:var(--crop);flex:none}
 #imgList li span.n{overflow:hidden;text-overflow:ellipsis}
-main{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px;min-width:0;min-height:0}
-.pane{position:relative;background:#0e0f13;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0;min-height:0}
-.pane .title{position:absolute;left:8px;top:8px;z-index:2;background:rgba(20,22,28,.8);padding:3px 9px;border-radius:6px;pointer-events:none;font-weight:600}
+main{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;min-width:0;min-height:0;background:var(--panel)}
+.pane{position:relative;background:var(--stage);border:1px solid var(--ink);border-radius:0;overflow:hidden;min-width:0;min-height:0}
+.pane .title{position:absolute;left:8px;top:8px;z-index:2;background:rgba(233,233,232,.88);padding:2px 10px;border-radius:99px;pointer-events:none;font-weight:500;letter-spacing:.08em}
 .pane .tools{position:absolute;right:8px;top:8px;z-index:2;display:flex;gap:4px}
-.pane .tools button{padding:3px 8px;background:rgba(37,41,51,.9)}
+.pane .tools button{padding:2px 10px;background:rgba(233,233,232,.9)}
 .pane canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .pane .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:20px}
-#dropHint{position:absolute;inset:0;background:rgba(79,140,255,.15);border:2px dashed var(--accent);display:none;align-items:center;justify-content:center;font-size:18px;z-index:5}
-footer{grid-column:1/4;display:flex;gap:16px;align-items:center;padding:0 12px;background:var(--panel);border-top:1px solid var(--line);color:var(--muted);white-space:nowrap;overflow:hidden}
+#dropHint{position:absolute;inset:0;background:rgba(42,45,51,.07);border:2px dashed var(--ink);display:none;align-items:center;justify-content:center;font-size:18px;z-index:5}
+footer{grid-column:1/4;display:flex;gap:16px;align-items:center;padding:0 14px;background:var(--panel);border-top:1px solid var(--ink);color:var(--muted);white-space:nowrap;overflow:hidden}
 footer .err{color:var(--bgpt)}
-.mode{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
-.mode button{border:none;border-radius:0;padding:6px 12px}
-.mode button.crop.sel{background:#1f6b40;color:#fff}
-.mode button.bg.sel{background:#8a2632;color:#fff}
-.obj{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;cursor:pointer;border:1px solid transparent}
+.mode{display:flex;border:1px solid var(--ink);border-radius:99px;overflow:hidden}
+.mode button{border:none;border-radius:0;padding:6px 14px}
+.mode button.crop.sel{background:var(--crop);color:#fff}
+.mode button.bg.sel{background:var(--bgpt);color:#fff}
+.obj{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:0;cursor:pointer;border:1px solid transparent}
 .obj:hover{background:var(--panel2)}
-.obj.act{border-color:var(--accent);background:#222a3a}
-.obj .sw{width:12px;height:12px;border-radius:3px;flex:none}
+.obj.act{border-color:var(--ink);background:var(--panel2)}
+.obj .sw{width:12px;height:12px;border-radius:50%;flex:none}
 .obj input{flex:1;min-width:0;background:transparent;border:none;padding:1px 2px}
-.obj input:focus{background:var(--panel2);outline:1px solid var(--line)}
+.obj input:focus{background:var(--panel);outline:1px solid var(--ink)}
 .obj .meta{color:var(--muted);font-size:11px;white-space:nowrap}
 .x{padding:1px 6px;background:transparent;border:none;color:var(--muted)}
 .x:hover{color:var(--bgpt);background:transparent}
 table.pts{width:100%;border-collapse:collapse;font-size:12px}
-table.pts td{padding:3px 4px;border-bottom:1px solid #272b35}
-table.pts tr.sel td{background:#263552}
+table.pts td{padding:3px 4px;border-bottom:1px solid var(--line)}
+table.pts tr.sel td{background:var(--panel2)}
 table.pts tr{cursor:pointer}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px}
 .cands{display:flex;gap:4px;flex-wrap:wrap}
-.cands button{padding:4px 8px;font-size:12px}
+.cands button{padding:3px 10px;font-size:12px}
 .muted{color:var(--muted)}
 label.ck{display:flex;gap:6px;align-items:center;cursor:pointer}
-input[type=range]{width:100%}
-kbd{background:var(--panel2);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font:11px Consolas,monospace}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent)}
+kbd{background:transparent;border:1px solid var(--ink);border-radius:4px;padding:0 5px;font:11px Consolas,monospace}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:12px;color:var(--muted)}
 .keys span:nth-child(odd){text-align:right}
 .path{font-size:11px;color:var(--muted);word-break:break-all}
 header{min-width:0}
-header h1{min-width:0;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+header h1{min-width:150px;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
 header button,header label,header select,header .badge,#imgPos{white-space:nowrap;flex-shrink:0}
 @media (max-width:1250px){ header .hide-s{display:none} header h1{font-size:13px} }
 .hint{font-size:12px;color:var(--muted);margin-top:6px}
 .hint.warn{color:var(--warn)}
 .dirname{font-weight:600;word-break:break-all}
 #resumeBox{display:none}
-#modal{position:fixed;inset:0;z-index:60;background:rgba(10,11,14,.82);display:none;align-items:center;justify-content:center}
-#modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px 26px;width:min(520px,92vw);line-height:1.6}
-#modal h2{margin:0 0 6px;font-size:17px}
-#modal .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;margin:12px 0 6px}
+#modal{position:fixed;inset:0;z-index:60;background:rgba(220,236,251,.86);display:none;align-items:center;justify-content:center}
+#modal .box{background:var(--panel);border:1px solid var(--ink);border-radius:0;padding:22px 26px;width:min(520px,92vw);line-height:1.6}
+#modal h2{margin:0 0 6px;font-size:17px;font-weight:500;letter-spacing:.08em}
+#modal .bar{height:6px;background:var(--panel2);border:1px solid var(--ink);overflow:hidden;margin:12px 0 6px}
 #modal .bar div{height:100%;width:0;background:var(--accent);transition:width .2s}
 #modal .files{font:12px Consolas,monospace;color:var(--muted);max-height:120px;overflow:auto;white-space:pre}
 #modal .err{color:var(--bgpt);white-space:pre-wrap}
@@ -605,7 +610,7 @@ function draw() { if (!rafId) rafId = requestAnimationFrame(() => { rafId = 0; d
 function drawPane(cv, left) {
   const dpr = sizeCanvas(cv), g = cv.getContext('2d'), v = S.view;
   g.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = '#0e0f13'; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = '#d8d8d6'; g.fillRect(0, 0, cv.width, cv.height);
   if (!S.img) return;
   g.setTransform(dpr * v.s, 0, 0, dpr * v.s, dpr * v.ox, dpr * v.oy);
   g.imageSmoothingEnabled = v.s < 2;
@@ -638,8 +643,8 @@ function drawPane(cv, left) {
   if (left || $('ptsOnRight').checked) drawPoints(g, dpr);
 }
 function drawChecker(g) {
-  g.fillStyle = '#2a2d35'; g.fillRect(0, 0, S.W, S.H);
-  const t = 16 / S.view.s; g.fillStyle = '#34373f';
+  g.fillStyle = '#cfcfcd'; g.fillRect(0, 0, S.W, S.H);
+  const t = 16 / S.view.s; g.fillStyle = '#e0e0de';
   const x0 = 0, y0 = 0;
   for (let y = y0, r = 0; y < S.H; y += t, r++) for (let x = x0 + (r % 2) * t; x < S.W; x += 2 * t) g.fillRect(x, y, Math.min(t, S.W - x), Math.min(t, S.H - y));
 }

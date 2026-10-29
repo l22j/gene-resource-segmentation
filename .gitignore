@@ -13,3 +13,6 @@ images/
 __pycache__/
 *.pyc
 python/
+
+# 디자인 시안
+design_drafts/
