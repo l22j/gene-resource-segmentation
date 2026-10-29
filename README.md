@@ -8,7 +8,13 @@
 - 한 이미지에 여러 포기(객체)를 따로 라벨링
 - 저장한 이미지는 다시 열면 점이 복원되어 이어서 수정 가능
 
+> 🌐 **바로 써보기:** https://l22j.github.io/gene-resource-segmentation/ (설치 없이 브라우저에서 실행)
+>
 > 📘 같은 내용을 보기 좋게 정리한 **[사용설명서.html](사용설명서.html)** 도 있습니다. (더블클릭해서 열기)
+
+> ⚠️ **가중치(`.pth`)는 이 저장소에 들어 있지 않습니다.** (파일이 너무 커서 GitHub 에 올릴 수 없음)
+> 파이썬 서버 버전을 쓰려면 아래 [8장](#8-파이썬-서버-버전)의 `download_weights` 로 필요한 것만 골라 받으세요.
+> 브라우저 버전은 가중치를 따로 받을 필요가 없습니다.
 
 ---
 
@@ -20,7 +26,7 @@
 |---|---|---|
 | 실행 | `AI_이미지_세분화_시스템_v2.html` 더블클릭 | `run_sam_label.bat` 더블클릭 |
 | 설치 | 없음 (Chrome / Edge 만 있으면 됨) | 파이썬 + PyTorch + segment_anything |
-| 모델 | 브라우저용으로 변환된 SAM (처음 한 번 자동 다운로드) | 폴더 안의 `.pth` 가중치 |
+| 모델 | 브라우저용으로 변환된 SAM (처음 한 번 자동 다운로드, **내 `.pth` 는 사용 안 함**) | 폴더 안의 `.pth` 가중치 |
 | 인터넷 | 필요 (실행할 때 AI 엔진을 받음) | 필요 없음 |
 | ViT-H | 매우 느림 (이미지 한 장 1~2분) | 정상 속도 |
 | 배포 | HTML 파일 하나만 보내면 됨 | 폴더 전체 + 파이썬 환경 |
@@ -42,6 +48,9 @@ weight_sam\
  ├ sam_label_server.py              ← 파이썬 서버 (SAM 계산)
  ├ sam_label.html                   ← 파이썬 서버 버전 화면
  ├ requirements.txt                 ← 파이썬 패키지 목록
+ ├ download_weights.py / .bat       ← 가중치 선택 다운로드 (여러 개 가능)
+ │
+ │  (아래는 저장소에 없음 · download_weights 로 받으면 이 폴더에 생김)
  ├ sam_vit_b_01ec64.pth             ← 가중치 ViT-B (375MB)
  ├ sam_vit_l_0b3195.pth             ← 가중치 ViT-L (1.2GB)
  ├ sam_vit_h_4b8939.pth             ← 가중치 ViT-H (2.5GB)
@@ -313,13 +322,34 @@ weight_sam\
    ```bash
    pip install -r requirements.txt
    ```
-3. 가중치(`.pth`)를 `sam_label_server.py` 와 같은 폴더에 둡니다.
+3. **가중치(`.pth`) 받기** — 필요한 모델을 골라서 받습니다. **여러 개를 동시에 선택할 수 있습니다.**
+
+   `download_weights.bat` 을 더블클릭하면 번호 선택 화면이 나옵니다.
+   ```
+     번호  모델                            크기      상태
+     1     ViT-B (빠름 · 가장 작음)         0.38 GB   없음
+     2     ViT-L (중간 · 권장)              1.25 GB   없음
+     3     ViT-H (가장 정확 · 가장 큼)      2.56 GB   없음
+   받을 번호를 쉼표/공백으로 입력 (예: 1,3 · all=전부 · 엔터=취소):
+   ```
+   명령어로 바로 지정할 수도 있습니다.
+   ```bash
+   python download_weights.py b l     # ViT-B 와 ViT-L
+   python download_weights.py h       # ViT-H 만
+   python download_weights.py all     # 전부
+   python download_weights.py --list  # 받은 상태 확인
+   ```
+   - 이미 있는 파일은 건너뛰고, 중간에 끊겨도 다시 실행하면 **이어받습니다.**
+   - 파일은 `sam_label_server.py` 와 **같은 폴더**에 저장됩니다. 서버가 그 폴더의 `.pth` 를 자동으로 찾기 때문에 **받으면 바로 적용**됩니다. (이미 서버를 켜 둔 상태라면 화면을 새로고침하세요.)
+   - 직접 받고 싶다면 아래 주소의 파일을 같은 폴더에 두면 됩니다. 파일 이름은 바꾸면 안 됩니다.
 
 | 이름 | 파일명 | 다운로드 |
 |---|---|---|
 | ViT-B | `sam_vit_b_01ec64.pth` | https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth |
 | ViT-L | `sam_vit_l_0b3195.pth` | https://dl.fbaipublicfiles.com/segment_anything/sam_vit_l_0b3195.pth |
 | ViT-H | `sam_vit_h_4b8939.pth` | https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth |
+
+   > 이미 `.pth` 를 가지고 있다면 `--weights 폴더경로` 옵션으로 그 폴더를 지정해도 됩니다. (파일명은 위 표와 같아야 함)
 
 ### 실행
 1. **`run_sam_label.bat` 을 더블클릭**합니다. 모델을 불러오면 브라우저가 자동으로 열립니다. (안 열리면 `http://127.0.0.1:8765`)
