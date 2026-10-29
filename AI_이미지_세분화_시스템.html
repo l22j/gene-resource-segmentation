@@ -96,6 +96,14 @@ header button,header label,header select,header .badge,#imgPos{white-space:nowra
 #modal .bar div{height:100%;width:0;background:var(--accent);transition:width .2s}
 #modal .files{font:12px Consolas,monospace;color:var(--muted);max-height:120px;overflow:auto;white-space:pre}
 #modal .err{color:var(--bgpt);white-space:pre-wrap}
+#picker{position:fixed;inset:0;z-index:70;background:rgba(220,236,251,.86);display:none;align-items:center;justify-content:center}
+#picker .box{background:var(--panel);border:1px solid var(--ink);padding:24px 28px;width:min(580px,94vw);line-height:1.6}
+#picker h2{margin:0 0 6px;font-size:17px;font-weight:500;letter-spacing:.08em}
+#pkList{margin-top:12px}
+.pk{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.pk .pkinfo{flex:1;min-width:0}
+.pk .pkinfo b{display:block;font-weight:600}
+.pk.last .pkinfo b::after{content:' · 지난번 사용';color:var(--muted);font-weight:400}
 </style>
 </head>
 <body>
@@ -234,6 +242,13 @@ header button,header label,header select,header .badge,#imgPos{white-space:nowra
     <div class="row" id="mBtns" style="margin-top:10px;display:none"><button id="mRetry" class="primary">다시 시도</button><button id="mClose">닫기</button></div>
   </div></div>
 
+  <div id="picker"><div class="box">
+    <h2>모델 선택</h2>
+    <div class="muted">사용할 모델을 고르세요. 이 브라우저에 <b>저장된 모델</b>은 다운로드 없이 바로 열리고, <b>없는 모델</b>은 눌렀을 때만 받습니다.</div>
+    <div id="pkList"></div>
+    <label class="ck" style="margin-top:12px"><input type="checkbox" id="pkAuto">다음부터 지난번 모델이 저장돼 있으면 이 창 없이 바로 열기</label>
+  </div></div>
+
   <footer><span id="msg">준비</span><span class="grow" style="flex:1"></span><span id="coord"></span><span id="zoomTxt"></span></footer>
 </div>
 
@@ -360,7 +375,21 @@ async function refreshCacheInfo() {
     $('cacheInfo').textContent = keys.length
       ? `저장된 모델: ${names.map(n => 'ViT-' + n[0].toUpperCase()).join(', ')}${est ? ` · 약 ${(est.usage / 1e9).toFixed(2)}GB 사용` : ''}`
       : '저장된 모델 없음 (처음 쓸 때 다운로드)';
+    S.have = await cachedModels(); fillWeightSel();
   } catch { $('cacheInfo').textContent = '확인 불가'; }
+}
+// 모델별로 지금 정밀도에 필요한 파일이 브라우저에 저장돼 있는지 (파일은 다 받은 뒤에만 저장되므로 있으면 온전함)
+const VISION_FILE = {fp32: 'vision_encoder.onnx', fp16: 'vision_encoder_fp16.onnx', q8: 'vision_encoder_quantized.onnx'};
+async function cachedModels() {
+  let keys = [];
+  try { keys = (await idb.keys('files')).map(String); } catch {}
+  const have = {};
+  for (const [k, m] of Object.entries(MODELS)) {
+    const mine = keys.filter(u => u.includes(`/${m.id}/`));
+    const has = f => mine.some(u => u.endsWith('/' + f));
+    have[k] = has(VISION_FILE[dtypeFor(k)]) && has('prompt_encoder_mask_decoder.onnx') && has('config.json');
+  }
+  return have;
 }
 $('cacheClear').onclick = async () => {
   if (!confirm('다운로드한 모델 파일을 모두 지울까요? 다음에 쓸 때 다시 다운로드합니다.')) return;
@@ -380,11 +409,12 @@ function autoDtype(key) {
   if (S.device === 'webgpu') return S.f16 && mb.fp16 ? 'fp16' : (mb.fp32 ? 'fp32' : 'q8');
   return 'q8';
 }
+const dtypeFor = key => S.prec === 'auto' || !MODELS[key].mb[S.prec] ? autoDtype(key) : S.prec;
 function fillWeightSel() {
   const ws = $('weightSel'); ws.innerHTML = '';
   for (const [k, m] of Object.entries(MODELS)) {
-    const d = S.prec === 'auto' ? autoDtype(k) : (m.mb[S.prec] ? S.prec : autoDtype(k));
-    ws.add(new Option(`${m.label} · ${m.mb[d]}MB`, k));
+    const d = dtypeFor(k);
+    ws.add(new Option(`${m.label} · ${m.mb[d]}MB${S.have && S.have[k] ? ' · 저장됨' : ''}`, k));
   }
   ws.value = S.weight;
   const ps = $('precSel'); ps.innerHTML = '';
@@ -401,7 +431,7 @@ function enqueue(fn) { const p = chain.then(fn); chain = p.catch(() => {}); retu
 
 async function loadModel(key) {
   const m = MODELS[key];
-  const dtype = S.prec === 'auto' || !m.mb[S.prec] ? autoDtype(key) : S.prec;
+  const dtype = dtypeFor(key);
   modal.show(`${m.label} 불러오는 중`, `정밀도 ${PREC_LABEL[dtype]} · 처음에는 인터넷에서 다운로드하고, 이후에는 브라우저에 저장된 파일을 씁니다.`);
   const files = {};
   const progress_callback = p => {
@@ -447,6 +477,34 @@ $('weightSel').onchange = e => {
   S.weight = key; fillWeightSel(); changeModel(key);
 };
 $('precSel').onchange = e => { S.prec = e.target.value; fillWeightSel(); changeModel(S.weight); };
+
+// 시작할 때 모델 고르기: 저장된 모델은 바로 쓰고, 없는 모델은 확인 후 다운로드
+function chooseModel() {
+  return new Promise(resolve => {
+    const list = $('pkList'); list.innerHTML = '';
+    let lastUsed = null; try { lastUsed = localStorage.getItem('aiseg.weight'); } catch {}
+    for (const [k, m] of Object.entries(MODELS)) {
+      const d = dtypeFor(k), have = !!S.have[k];
+      const row = document.createElement('div'); row.className = 'pk' + (k === lastUsed ? ' last' : '');
+      const info = document.createElement('div'); info.className = 'pkinfo';
+      const name = document.createElement('b'); name.textContent = m.label;
+      const sub = document.createElement('span'); sub.className = 'muted';
+      sub.textContent = `${PREC_LABEL[d]} · ${m.mb[d]}MB`;
+      info.append(name, sub);
+      const st = document.createElement('span'); st.className = 'badge ' + (have ? 'ok' : ''); st.textContent = have ? '저장됨' : '없음';
+      const btn = document.createElement('button'); btn.className = have ? 'primary' : '';
+      btn.textContent = have ? '바로 사용' : `다운로드 (${m.mb[d]}MB)`;
+      btn.onclick = () => {
+        if (!have && m.slow && !confirm('ViT-H 는 브라우저에서는 그래픽카드 가속이 되지 않아 이미지 한 장 분석에 1~2분이 걸립니다. (다운로드 661MB)\n빠르고 정확한 작업에는 ViT-L 을 권장합니다.\n\n그래도 ViT-H 를 받을까요?')) return;
+        $('picker').style.display = 'none'; resolve(k);
+      };
+      row.append(info, st, btn); list.append(row);
+    }
+    $('pkAuto').checked = (() => { try { return localStorage.getItem('aiseg.autoopen') === '1'; } catch { return false; } })();
+    $('pkAuto').onchange = e => { try { localStorage.setItem('aiseg.autoopen', e.target.checked ? '1' : '0'); } catch {} };
+    $('picker').style.display = 'flex';
+  });
+}
 
 // ---------------- 임베딩 / 예측 ----------------
 const embedCache = new Map();    // 이미지 이름 -> 임베딩 (최근 8장)
@@ -1188,7 +1246,13 @@ $('resumeBtn').onclick = () => resumeFolders().catch(e => msg('지난 폴더를 
     modal.error('AI 엔진을 불러오지 못했습니다. 인터넷 연결을 확인하세요.\n' + (e.message || e), () => location.reload());
     return;
   }
-  await changeModel(S.weight);
+  // 모델은 자동으로 받지 않고, 저장 여부를 보여 주며 고르게 함
+  modal.hide();
+  S.have = await cachedModels(); fillWeightSel();
+  let auto = false; try { auto = localStorage.getItem('aiseg.autoopen') === '1'; } catch {}
+  const key = auto && S.have[S.weight] ? S.weight : await chooseModel();
+  S.weight = key; fillWeightSel();
+  await changeModel(key);
 })();
 </script>
 </body>
